@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Competition data; re-download with `make data`
+data/
+
+# Experiment outputs (OOF, metrics, model weights) and the staged Kaggle dataset
+outputs/
+build/
+
+# macOS
+.DS_Store

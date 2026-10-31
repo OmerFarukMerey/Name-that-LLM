@@ -16,3 +16,18 @@ build/
 
 # macOS
 .DS_Store
+
+# Built by kaggle/stack/build.py from upstream.ipynb
+kaggle/stack/ntl-stack.ipynb
+# Built by kaggle/lightning/build.py (one folder per kernel)
+kaggle/lightning/ntl-*-svc-tiers/
+# Built by kaggle/lightning/build_variants.py
+kaggle/lightning/ntl-v28-*/
+# Built by kaggle/stack/build_public.py
+kaggle/public/*.ipynb
+# Built by kaggle/lightning/build_public.py
+kaggle/lightning/public/
+# Built by kaggle/member/build_member.py
+kaggle/member/ntl-member-*/
+# Built by kaggle/nlm/build_nlm.py
+kaggle/nlm/ntl-*/

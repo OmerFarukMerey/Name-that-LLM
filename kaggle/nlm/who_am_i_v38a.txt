@@ -1,0 +1,35 @@
+
+if not a.sim:
+    import pathlib as _V38Path
+    import scipy.special as _v38sp
+    import json as _v38json
+    _out = _V38Path.Path(a.out)
+    _reference = sub.copy()
+    _reference.to_parquet(_out.with_name('candidate_reference_0651.parquet'), index=False)
+    _marks = [' — ', '—', '–', '’', '‘', '“', '”', '«', '»', '"', ';', ':', '(', ')', '[', ']', '**', '`', '…', '•', '\n', '\n\n', 'e.g.', 'i.e.', 'However,', 'Overall,', 'In conclusion', 'Therefore,', 'Moreover,', '\t', ' - ', ' = ', '\n- ', '\n1.']
+    _Xtr = np.array([[float(_m in _t) for _m in _marks] for _t in train.text.values], dtype=np.float32)
+    _Xte = np.array([[float(_m in _t) for _m in _marks] for _t in test.text.values], dtype=np.float32)
+    _freq = np.bincount(y, minlength=len(LABELS)).astype(float)
+    _hits = np.array([_Xtr[y == _k].sum(axis=0) for _k in range(len(LABELS))], dtype=np.float64)
+    _rate = np.clip((_hits + 2.0) / (_freq[:, None] + 4.0), 0.015, 0.985)
+    _evidence = (_Xte @ np.log(_rate).T + (1 - _Xte) @ np.log(1 - _rate).T) / len(_marks)
+    _evidence -= _evidence.mean(axis=1, keepdims=True)
+    _evidence = np.clip(2.0 * _evidence, -.35, .35)
+    _raw = _v38_before_hard.copy()
+    _probs = _v38sp.softmax(_raw, axis=1)
+    _sorted = np.sort(_probs, axis=1)
+    _margin = _sorted[:, -1] - _sorted[:, -2]
+    _gate = np.clip((0.8 - _margin) / 0.8, 0., 1.)
+    _full_logits = _raw + _evidence
+    _safe_logits = _raw + _gate[:, None] * _evidence
+    def _v38_sub(z):
+        return pd.DataFrame({'id':test.id.values, 'model':[LABELS[int(i)] for i in z.argmax(axis=1)]})
+    _full = _v38_sub(_full_logits)
+    _safe = _v38_sub(_safe_logits)
+    _full.to_parquet(_out.with_name('candidate_typobayes_full.parquet'), index=False)
+    _safe.to_parquet(_out, index=False)
+    assert _safe.id.is_unique and len(_safe) == len(test) and _safe.model.isin(LABELS).all()
+    with open(_out.with_name('v38a_diagnostics.json'),'w') as _fo:
+        _v38json.dump({'reference_changed':int((_reference.model.values != _safe.model.values).sum()),'raw_changed':int((_reference.model.values != _full.model.values).sum()),'trained_rows':len(train),'tested_rows':len(test),'signal':'prompt-heldout validated Bayesian typography'},_fo)
+    log('v38a completed; differences from 0.651:', int((_reference.model.values != _safe.model.values).sum()))
+

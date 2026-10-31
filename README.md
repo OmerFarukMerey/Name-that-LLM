@@ -25,6 +25,7 @@ scripts/
   build_kaggle_dataset.py stage build/kaggle-dataset/ for upload
 submissions/INDEX.md      log of every submission: CV, public LB, final picks
 docs/competition.md       competition facts and validation notes
+docs/public_notebooks.md  the public notebooks at 0.635+, what each adds, with credits
 tests/                    metric, CV, and submission-format checks
 data/raw/                 (gitignored) competition files
 outputs/                  (gitignored) per-experiment OOF, metrics, model weights

@@ -1,0 +1,19 @@
+{
+  "id": "omerfarukmerey/ntl-tpu-probe",
+  "title": "ntl-tpu-probe",
+  "code_file": "ntl-tpu-probe.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": true,
+  "enable_internet": true,
+  "keywords": [],
+  "dataset_sources": [],
+  "kernel_sources": [],
+  "competition_sources": [],
+  "model_sources": [
+    "mistral-ai/ministral-3/Transformers/ministral-3-8b-base-2512/1"
+  ],
+  "machine_shape": "Tpu1VmV38"
+}

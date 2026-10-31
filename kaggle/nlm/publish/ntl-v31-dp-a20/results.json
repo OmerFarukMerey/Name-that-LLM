@@ -1,0 +1,65 @@
+{
+ "score": "0.663",
+ "rows": [
+  [
+   "Roman Tamrazov, [Who am I?](https://www.kaggle.com/code/romantamrazov/name-that-llm-who-am-i), the version V31 starts from",
+   "the 0.651 recipe + his typography step",
+   "0.654"
+  ],
+  [
+   "mercurydust, [Name That LLM-Submission](https://www.kaggle.com/code/mercurydust/name-that-llm-submission) version 2 (V31)",
+   "V31's changes (below)",
+   "0.660"
+  ],
+  [
+   "ours: V31 + the faster run",
+   "the faster run only",
+   "0.660"
+  ],
+  [
+   "**this notebook**: V31 + the faster run + ATLAS 20%",
+   "ATLAS-8B mixed at 20% instead of 10%",
+   "**0.663**"
+  ],
+  [
+   "ours: V31 + the faster run + ATLAS 30%",
+   "ATLAS-8B mixed at 30%",
+   "0.663"
+  ],
+  [
+   "ours: V31 + the faster run + typography margin gate only",
+   "no length or marker-count gate",
+   "0.660"
+  ],
+  [
+   "ours: V31 + the faster run + ATLAS 20% + margin gate only",
+   "both",
+   "0.661"
+  ],
+  [
+   "ours: the 0.651 recipe + ATLAS 20%",
+   "ATLAS-8B at 20% on nlm-v27",
+   "0.652"
+  ]
+ ],
+ "dp_check": " Checked on Kaggle's T4 ×2 before use: every member's log-probabilities match upstream's within 7.6e-6.",
+ "a_note": "\nOn the leaderboard: the faster run alone scored 0.660, the same as V31; with ATLAS at 20% it scored **0.663**, and at 30% also 0.663. On the 0.651 recipe the same change gave +0.001 (0.651 → 0.652).\n",
+ "did_not_transfer": [
+  [
+   "Our own Ministral-3-8B two-stage LoRA24 member (OOF 0.605 alone) at w 2 / w 3 on the 0.651 recipe",
+   "+0.004 / +0.006",
+   "0.641 / 0.635"
+  ],
+  [
+   "A second ATLAS (harshitakumari256's Qwen3-4B bundle) at 10% after ATLAS-8B",
+   "+0.007",
+   "0.650"
+  ],
+  [
+   "V31's typography step with its margin gate only (no length or marker-count gate)",
+   "+0.0019",
+   "0.660 alone; 0.661 with ATLAS 20% (0.663 without)"
+  ]
+ ],
+ "llama_cache_gone": true
+}

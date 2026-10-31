@@ -1,0 +1,25 @@
+{
+  "id": "omerfarukmerey/ntl-tpu-mn8-s1b",
+  "title": "ntl-tpu-mn8-s1b",
+  "code_file": "ntl-tpu-mn8-s1b.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": true,
+  "enable_internet": true,
+  "keywords": [],
+  "dataset_sources": [
+    "dhruvtibarewal/nlm-matched-clean"
+  ],
+  "kernel_sources": [
+    "omerfarukmerey/ntl-l24-mn8-s1"
+  ],
+  "competition_sources": [
+    "name-that-llm"
+  ],
+  "model_sources": [
+    "mistral-ai/ministral-3/Transformers/ministral-3-8b-base-2512/1"
+  ],
+  "machine_shape": "Tpu1VmV38"
+}

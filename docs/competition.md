@@ -47,7 +47,10 @@ Every class counts equally regardless of how many passages it has.
 
 ## Rules
 
-- 5 submissions/day; up to 2 final submissions selected for judging.
+- 5 submissions/day (reset 00:00 UTC); up to 2 final submissions selected for judging.
+- The hidden-test rerun of a submission does not use your weekly GPU quota: with two reruns
+  in progress the settings page showed 00:00 / 45 h used (2026-10-25). Only the commit run
+  (3-row test) does. A ~4,000-row rerun of the 0.639 stack took about 4 h on 2026-10-25.
 - Team size ≤ 5. No private code sharing outside the team, so keep the
   artifacts dataset and inference notebook **private**.
 - External data and pre-trained models are allowed if they are freely and publicly
@@ -65,7 +68,34 @@ $50,000 total: $5,000 each for places 1–10.
 
 ## Validation implications
 
-- Split by `prompt_id` (`ntl.cv`). A random split leaks a prompt's sibling answers
-  across folds and overstates CV.
+- Split by `prompt_id` (`ntl.cv`). Others report that a random split scores far lower
+  (0.217 vs 0.369 grouped, LB 0.355): a validation passage's topic words then point
+  toward the 17 other models that answered the same prompt.
 - Train classes are balanced, so argmax of the predicted probabilities targets balanced
   accuracy directly. Do not re-weight toward any guessed test class mix.
+
+## Measured locally / learned from the forum (2026-10-25)
+
+- exp001 char+word TF-IDF + LR: grouped CV **0.350**. The forum's equivalent scored public LB 0.353.
+- **Test-time prompt grouping does not transfer.** Clustering passages by topic
+  (TF-IDF, ARI 0.94 against true prompts) plus Hungarian assignment so each model
+  appears once per cluster gave +0.10 on train OOF (0.350 → 0.450). Two teams report it
+  flat or negative on the public LB (0.353 → 0.344, 0.427 → 0.425). The hidden test
+  appears to have only a few answers per prompt. Don't spend submissions on it.
+- The best public notebook is 0.642 (lightningv08, 2026-10-25). It is the 0.639 stack, with the n-gram SVC pre-fitted
+  (cached in its asset dataset), plus a full-text Qwen3.8-27B NF4 classifier. Version 25 (Qwen **5%**) scored 0.641 and
+  version 28 (Qwen **10%**, otherwise identical) 0.642; V26/V27 (3%, 7%) show no score. `kernels pull` returns the latest
+  version, so pin the scored one when forking. An identical-code copy of V25 on a different Docker image lists 0.639,
+  so environment alone can move a score by about 0.002. Our best is 0.640 (INDEX #5 and #6); the SVC-tiers forks of V25/V28 scored 0.640/0.639. The public leaders are two-stage LoRA LLMs (Qwen3/3.5 8–14B). They train
+  first on public pools of generated passages (35k → 120k rows), then on train. Encoders,
+  n-gram SVMs and a complementary stack are blended in. More, cleaner, all-18-label
+  data is the biggest lever reported.
+- Pool-trained members show grouped CV 0.03–0.04 **above** public LB. Compare them with
+  each other, not with train-only members.
+- **Fork the scored version, with its Docker image.** A public notebook's listed score is its
+  best version's, not necessarily the current one. maverickss26's v2 lists 0.639 (its v4); our copy
+  of its v5, which has a different Docker image and a fail-safe fallback, scored 0.620 on the
+  hidden rerun. That is exactly its part-two anchor alone, so the fusion stages failed without an
+  error. Prefer fail-closed originals: a broken run then errors instead of scoring quietly lower.
+- Light Sinkhorn balancing (1–3 iterations) helped the public LB by about +0.01 for single
+  LoRA members, even with flat CV. Full balancing is risky if the test mix is uneven.

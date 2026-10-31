@@ -1,0 +1,25 @@
+{
+  "id": "omerfarukmerey/ntl-l24-glm9-s1b",
+  "title": "ntl-l24-glm9-s1b",
+  "code_file": "ntl-l24-glm9-s1b.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "keywords": [],
+  "dataset_sources": [
+    "dhruvtibarewal/nlm-matched-clean"
+  ],
+  "kernel_sources": [
+    "lucasboesen/name-that-llm-glm4-9b-trunc25",
+    "omerfarukmerey/ntl-l24-glm9-s1"
+  ],
+  "competition_sources": [
+    "name-that-llm"
+  ],
+  "model_sources": [],
+  "machine_shape": "NvidiaTeslaT4",
+  "docker_image": "gcr.io/kaggle-private-byod/python@sha256:9a6bcfda6d03b2cd9aa347ee8c1bae62043328ed0f4afe9bda014e4f8bbf9435"
+}

@@ -979,7 +979,18 @@ for _name, _k in (("ntl-v31ac-a20-atlasx-p2", "2"), ("ntl-v31ac-a20-atlasx-p4", 
 # runs Sinkhorn 0.60 with V31's typography evidence at x1.2 instead of x1.5. On the sk30 code: each of their changes, our
 # exp029 power mix, all three together, and Sinkhorn 0.20.
 OPEN_POOL = "crtproduction/name-that-llm-open-pool"
-SK = {"sk30": KNOBS_V31["sk30"], "sk20": ("'--sinkhorn', '0.45',", "'--sinkhorn', '0.20',")}
+SK = {"sk30": KNOBS_V31["sk30"], "sk20": ("'--sinkhorn', '0.45',", "'--sinkhorn', '0.20',"),
+      "sk10": ("'--sinkhorn', '0.45',", "'--sinkhorn', '0.10',"), "sk60": KNOBS_V31["sk60"]}
+# 2026-11-02: judith007's 0.664 (Sinkhorn 0.60 + typography x1.2) read the extra passages as they were on 10-31, while our
+# pinned Sinkhorn 0.60 scored 0.658 and x1.2 was flat on our code (Sinkhorn 0.30 and 0.20). After the loader's filters
+# (prompts with >= 12 labels) the later batches add 418 rows to the 10,325: d1029 + d1030, v2b19-v2b20 and prvsiyan's
+# dataset version 5. d1031, d1101 and v2b21 add none, and ntl_claude_plain.csv / ntl_fal_paid.csv match no loader pattern.
+# P30 keeps the batches of 10-30, i.e. judith007's 10,743 rows.
+P30 = [("'d1028', 'pilot', 'pilot2', 'pilot3', 'pilotpro'}),", "'d1028', 'd1029', 'd1030', 'pilot', 'pilot2', 'pilot3', 'pilotpro'}),"),
+       ("{f'v2b{i:02d}' for i in range(1, 19)}),", "{f'v2b{i:02d}' for i in range(1, 21)}),"),
+       (".isin([1, 2, 4])\n", ".isin([1, 2, 4, 5])\n"),
+       ("# fork: only the batches these files had on 2026-10-28 (later additions dropped)",
+        "# fork: only the batches these files had on 2026-10-30 (later additions dropped)")]
 OSVC_POOL = ("POOL = next(iter(glob.glob('/kaggle/input/**/nlm_pool_v5.parquet', recursive=True)))\n",
              "POOL = next(iter(glob.glob('/kaggle/input/**/nlm_pool_v5.parquet', recursive=True)))\n"
              "# fork (zbigniewkirchner's 0.664): the SVC learns from crtproduction's open pool (198k public real-model passages,\n"
@@ -996,13 +1007,15 @@ def osvc(w):
 
 TYPO12 = ("    _evidence = np.clip(1.5 * _evidence / max(float(_fw.sum()), 1e-6), -0.30, 0.30)\n",
           "    _evidence = np.clip(1.2 * _evidence / max(float(_fw.sum()), 1e-6), -0.30, 0.30)   # fork: x1.2 instead of x1.5 (judith007's 0.664)\n")
+TYPO = {"12": TYPO12, "10": (TYPO12[0], "    _evidence = np.clip(1.0 * _evidence / max(float(_fw.sum()), 1e-6), -0.30, 0.30)   "
+                             "# fork: x1.0 instead of x1.5 (judith007's 0.664: x1.2)\n")}
 
 
 def combo_check(knobs, atlas_k):
     base = pow_check(atlas_k) if atlas_k else knob_check("0.20", None)
 
     def check(code):
-        for old, new in knobs:   # each change present once; reverted, the code must pass the pinned a20 checks
+        for old, new in reversed(knobs):   # each change present once; reverted (last first), the code must pass the pinned a20 checks
             if code.count(new) != 1 or (old not in new and old in code):
                 return False
             code = code.replace(new, old)
@@ -1010,15 +1023,28 @@ def combo_check(knobs, atlas_k):
     return check
 
 
-for _name, _sk, _osvc, _k, _typo in (("ntl-v31ac-a20-sk30-osvc12", "sk30", "12", None, False),
-                                     ("ntl-v31ac-a20-sk30-osvc15", "sk30", "1.5", None, False),
-                                     ("ntl-v31ac-a20-sk30-osvc20", "sk30", "20", None, False),   # exp030: w 20 best OOF
-                                     ("ntl-v31ac-a20-sk30-ax4", "sk30", None, "4", False),
-                                     ("ntl-v31ac-a20-sk30-typo12", "sk30", None, None, True),
-                                     ("ntl-v31ac-a20-sk30-osvc12-ax4-typo12", "sk30", "12", "4", True),
-                                     ("ntl-v31ac-a20-sk30-osvc12-ax4", "sk30", "12", "4", False),
-                                     ("ntl-v31ac-a20-sk20", "sk20", None, None, False)):
-    _knobs = [SK[_sk]] + (osvc(_osvc) if _osvc else []) + ([TYPO12] if _typo else [])
+for _name, _sk, _osvc, _k, _typo, *_p30 in (("ntl-v31ac-a20-sk30-osvc12", "sk30", "12", None, None),
+                                            ("ntl-v31ac-a20-sk30-osvc15", "sk30", "1.5", None, None),
+                                            ("ntl-v31ac-a20-sk30-osvc20", "sk30", "20", None, None),   # exp030: w 20 best OOF
+                                            ("ntl-v31ac-a20-sk30-ax4", "sk30", None, "4", None),
+                                            ("ntl-v31ac-a20-sk30-typo12", "sk30", None, None, "12"),
+                                            ("ntl-v31ac-a20-sk30-osvc12-ax4-typo12", "sk30", "12", "4", "12"),
+                                            ("ntl-v31ac-a20-sk30-osvc12-ax4", "sk30", "12", "4", None),
+                                            ("ntl-v31ac-a20-sk20", "sk20", None, None, None),
+                                            # 2026-11-01: judith007's x1.2 was +0.006 over our sk60 (0.664 vs 0.658); bracket it
+                                            ("ntl-v31ac-a20-sk30-typo10", "sk30", None, None, "10"),
+                                            ("ntl-v31ac-a20-sk20-typo12", "sk20", None, None, "12"),
+                                            # 2026-11-01: open-pool SVC 0.664 at 12 and 20 (neutral), x ATLAS^4 0.654; lightningv08's
+                                            # 0.662 runs without balancing, and each softer step has paid (0.60 0.658, 0.45 0.663, 0.30 0.664)
+                                            ("ntl-v31ac-a20-sk10", "sk10", None, None, None),
+                                            # 2026-11-02: Sinkhorn peaks at 0.30 (0.20 0.662, 0.10 0.658), typography 1.0-1.5 flat at
+                                            # 0.30; judith007's +0.006 at 0.60 is either the 10-30 rows (P30) or x1.2 at 0.60
+                                            ("ntl-v31ac-a20-sk60-p30", "sk60", None, None, None, "p30"),
+                                            ("ntl-v31ac-a20-sk60-typo12", "sk60", None, None, "12"),
+                                            ("ntl-v31ac-a20-sk30-p30", "sk30", None, None, None, "p30"),
+                                            ("ntl-v31ac-a20-p30", None, None, None, None, "p30"),
+                                            ("ntl-v31ac-a20-typo12", None, None, None, "12")):
+    _knobs = ([SK[_sk]] if _sk else []) + (osvc(_osvc) if _osvc else []) + ([TYPO[_typo]] if _typo else []) + (P30 if _p30 else [])
     VARIANTS[_name] = {
         "base": "v31",
         "patches": [MIRROR_LLAMA_AC] + LLAMA_COPY + FAST_COMMIT_V31 + ATLAS_TO_DEADLINE_V31 + L24_DP
@@ -1030,11 +1056,325 @@ for _name, _sk, _osvc, _k, _typo in (("ntl-v31ac-a20-sk30-osvc12", "sk30", "12",
             ", and its adapters are our retraining with Joseph Adamski's code and configuration on the official rows plus "
             "500 public real-model passages per label (crtproduction/name-that-llm-open-pool); after that mix the same rows "
             f"are multiplied by ATLAS's scores to the power {_k} (renormalised)." if _k else ".")
-        + f" The balancing goes {int(_sk[2:])}% of the way to the balanced log-probabilities instead of 45%."
+        + (f" The balancing goes {int(_sk[2:])}% of the way to the balanced log-probabilities instead of 45%." if _sk else "")
         + (f" The 4-view SVC learns from crtproduction's open pool instead of nlm_pool_v5, at weight {_osvc} "
            "(zbigniewkirchner's 0.664)." if _osvc else "")
-        + (" The typography step's evidence is scaled by 1.2 instead of 1.5 (judith007's 0.664)." if _typo else "")
-        + V31AC_INTRO + " The extra passages are pinned to their 2026-10-28 versions (the batches added since are dropped)."}
+        + (f" The typography step's evidence is scaled by {int(_typo) / 10:.1f} instead of 1.5"
+           + (" (judith007's 0.664)." if _typo == "12" else ".") if _typo else "")
+        + V31AC_INTRO + (" The extra passages are pinned to their 2026-10-30 batches (the 10,743 rows judith007's 0.664 run "
+                         "read; the batches added since are dropped)." if _p30 else
+                         " The extra passages are pinned to their 2026-10-28 versions (the batches added since are dropped).")}
+# 2026-11-03: the notebook's own versions show the scored 0.666 is version 14 (J: the same count per label as
+# nlm_matched_clean, 1x); K (version 15, 2x) came after it (lightningv08's 0.666 notes say the same, and ayodeji's
+# "Areeb J control" and rahulkrttty's "v14 apex" rerun J for 0.666). Our xm2 + cx scored 0.666 (#52).
+# 2026-11-02: the Code tab's top is areebbb's 0.666, version K of a ladder on alexchilton's all-public fork of our 0.663:
+# the open-pool SVC at weight 12 with Sinkhorn 0.30 (their C, 0.664, = our sk30-osvc12), then the external rows of the
+# TF-IDF, distort and SVC members (--extra: nlm_matched_clean's 24k) drawn from the open pool (crtproduction's release
+# v11 = Kaggle version 13) by its typography match_weight, twice nlm_matched_clean's count per label (49k). Their run
+# read the extra passages of 2026-11-02, the same 10,743 loader rows as P30. osvc_xm(k) is our open-pool block plus that
+# draw at k times; the draw is pandas 2.2's g.sample(n, weights='match_weight', random_state=0) written out in numpy, so
+# a newer pandas (which refuses such a heavily weighted draw without replacement) cannot change or stop it.
+def osvc_xm(k):
+    return (OSVC_POOL[0], OSVC_POOL[0] + (
+        "# fork (zbigniewkirchner's 0.664): the SVC learns from crtproduction's open pool (198k public real-model passages,\n"
+        "# CC BY-SA 4.0) instead of nlm_pool_v5, minus the passages regenerated from train prompts\n"
+        "_op = _pd.read_parquet(next(iter(glob.glob('/kaggle/input/**/ntl_open_pool.parquet', recursive=True))), "
+        "columns=['text', 'model', 'flag_train_prompt_regen', 'match_weight'])\n"
+        "_op = _op[~_op.flag_train_prompt_regen.astype(bool)]\n"
+        "_op[['text', 'model']].to_parquet('/kaggle/working/open_pool.parquet')\n"
+        "POOL = '/kaggle/working/open_pool.parquet'; print('svc pool = open pool', len(_op))\n"
+        f"# fork (areebbb's 0.666 = their J, 1x; their K: 2x): the external rows of the TF-IDF, distort and SVC members are {k} x nlm_matched_clean's\n"
+        "# count per label, drawn from the open pool by its typography match_weight, instead of nlm_matched_clean itself\n"
+        "import numpy as _np\n"
+        "def _draw(g, n):   # = g.sample(n, weights='match_weight', random_state=0) under pandas 2.2\n"
+        "    w = _np.nan_to_num(g.match_weight.to_numpy(dtype=_np.float64))\n"
+        "    return g.take(_np.random.RandomState(0).choice(len(g), size=n, replace=False, p=w / w.sum()).astype(_np.intp))\n"
+        "_mix = _pd.read_parquet(EXTRA, columns=['model']).model.value_counts()\n"
+        f"_ex = _pd.concat([_draw(g, min(len(g), int({k} * _mix.get(m, 0)))) for m, g in _op.groupby('model')])\n"
+        "EXTRA = '/kaggle/working/extra_matched.parquet'; _ex[['text', 'model']].to_parquet(EXTRA)\n"
+        "print('external rows', len(_ex), 'drawn by match_weight; nlm_matched_clean had', int(_mix.sum())); del _op, _ex\n"))
+
+
+EXTRA_W = {"ew10": ("'--extra_w', '0.5',", "'--extra_w', '1.0',")}
+TFIDF_W = {f"tf{w}": ("'--tfidf_w', '0.25',", f"'--tfidf_w', '{f}',") for w, f in ((50, "0.5"), (75, "0.75"), (100, "1.0"), (150, "1.5"))}
+# exp035: the complementary stack's extra passages (stylegram SVC, its centred twin, the GPT / Gemini / GLM gates) also
+# take the open pool's prompts answered by >= 12 models (its prompt_group column), through the loader's own filters
+CX = ("    if not parts:\n        return pd.DataFrame(columns=['prompt_id', 'model', 'text'])\n",
+      "    for f in sorted(glob.glob('/kaggle/input/**/ntl_open_pool.parquet', recursive=True))[:1]:   # fork (exp035): the open pool's prompts\n"
+      "        d = pd.read_parquet(f, columns=['prompt_group', 'model', 'text']).rename(columns={'prompt_group': 'prompt_id'})\n"
+      "        d['prompt_id'] = 'op_' + d['prompt_id'].astype(str)   # its own prompt bank\n"
+      "        parts.append(d)\n"
+      "    if not parts:\n        return pd.DataFrame(columns=['prompt_id', 'model', 'text'])\n")
+# 2026-11-04 (on the 0.668 = -xm1-sov-cx): exp046 (a pool-trained TF-IDF member +0.017 out of fold when the open pool's
+# rows are weighted by match_weight, per label mean 1, clipped to [0.25, 4]) applied to the stack's op_ rows: the
+# stylegram SVC, its centred twin and the GPT / Gemini / GLM gates weigh each by it, a class's extra rows keeping their
+# share; any failure falls back to equal weights. The stack does not run in the fast commit, so a bug would show only in
+# the hidden rerun.
+CXMW_PATCHES = [
+    ("        d = pd.read_parquet(f, columns=['prompt_group', 'model', 'text']).rename(columns={'prompt_group': 'prompt_id'})\n",
+     "        d = pd.read_parquet(f, columns=['prompt_group', 'model', 'text', 'match_weight']).rename(\n"
+     "            columns={'prompt_group': 'prompt_id', 'match_weight': 'mw'})   # fork (exp046): with its typography match_weight\n"),
+    ("    x = x[x.groupby('prompt_id')['model'].transform('nunique') >= EXTRA_MIN_LABELS].reset_index(drop=True)\n    return x\n",
+     "    x = x[x.groupby('prompt_id')['model'].transform('nunique') >= EXTRA_MIN_LABELS].reset_index(drop=True)\n"
+     "    x['w'] = 1.0   # fork (exp046): open-pool rows weighted by match_weight (per label mean 1, clipped to [0.25, 4])\n"
+     "    try:\n"
+     "        if 'mw' in x:\n"
+     "            _op = x['mw'].notna() & (x['mw'] > 0)\n"
+     "            x.loc[_op, 'w'] = (x.loc[_op, 'mw'] / x.loc[_op].groupby('model')['mw'].transform('mean')).clip(0.25, 4.0)\n"
+     "            print(f\"extra passages: {int(_op.sum())} open-pool rows weighted by match_weight \"\n"
+     "                  f\"({x.loc[_op, 'w'].min():.2f}-{x.loc[_op, 'w'].max():.2f})\", flush=True)\n"
+     "    except Exception as _e:\n"
+     "        x['w'] = 1.0\n"
+     "        print('match_weight weighting skipped', repr(_e), flush=True)\n"
+     "    return x\n"),
+    ("EX_T, EX_Y, EX_G = EXTRA['text'].tolist(), EXTRA['model'].map(LAB2I).to_numpy(dtype=int), EXTRA['prompt_id'].to_numpy(dtype=object)\n",
+     "EX_T, EX_Y, EX_G = EXTRA['text'].tolist(), EXTRA['model'].map(LAB2I).to_numpy(dtype=int), EXTRA['prompt_id'].to_numpy(dtype=object)\n"
+     "EX_W = EXTRA['w'].to_numpy(dtype=float) if 'w' in EXTRA else np.ones(len(EXTRA))   # fork (exp046): extra-row weights\n"),
+    ("    w_ex = EXTRA_SHARE * n_tr[EX_Y] / np.maximum(n_ex[EX_Y], 1.0)\n",
+     "    s_ex = np.bincount(EX_Y, weights=EX_W, minlength=K).astype(float)   # fork (exp046): a class's rows by their weight\n"
+     "    w_ex = EXTRA_SHARE * n_tr[EX_Y] * EX_W / np.maximum(s_ex[EX_Y], 1e-9)\n"),
+    ("np.full(int(me.sum()), 0.25)]", "0.25 * EX_W[me]]")]
+# 2026-11-04: exp039 (a Claude-only classifier on external rows separates the five official Claude models at 0.662 with
+# kilupy's Anthropic-API passages vs 0.642 without) applied to the stack's Claude gate, which already reads the API
+# passages of seyitkaangunes/ntl-extra-api-passages: kilupy's 16,603 Claude rows join them (weight 1, as theirs)
+KC = ("    api = pd.read_csv(api_claude[0])\n",
+      "    api = pd.read_csv(api_claude[0])\n"
+      "    for _kf in sorted(glob.glob('/kaggle/input/**/ntl_18model_passages.parquet', recursive=True))[:1]:   # fork (exp039): kilupy's Claude rows\n"
+      "        _k = pd.read_parquet(_kf, columns=['text', 'model'])\n"
+      "        _k = _k[_k['model'].isin([LABELS[i] for i in FAMILY_IDX['claude']])]\n"
+      "        api = pd.concat([api[['text', 'model']], _k], ignore_index=True)\n"
+      "        print(f'claude gate: + {len(_k)} kilupy rows', flush=True)\n")
+# 2026-11-02: synthreaper's Sovereign Gold Apex (public 0.665; alexchilton ran it verbatim for 0.666) is the other 0.666
+# line: One Swap + Sinkhorn 0.30, then after the typography step Roman Tamrazov's sibling-style residual (V40A, max_alpha
+# 0.10) and mercurydust's V34.1 pairwise verifier on the ChatGPT A/B annotations (revision 03; 0.10 on rows with top-2
+# margin < 0.35), typography x1.35, atlas_margin 0.32. Its three cells and its infer.py block are taken verbatim from the
+# pinned notebook; "sov" adds them to K (which has none of them).
+SOV_FILE, SOV_SHA256 = "upstream_synthreaper_sovereign.ipynb", "e2bf27db239bf27fc286017389c373b35f66245b4061cfb0a66b01a365019a07"
+AB_DATA = "mercurydust/ntllm-chatgpt-a-b"
+
+
+def sov_parts():
+    """(cells, patches): sibling_style.py, v34_pairwise.py and the cell that runs it, each with the cell it follows (after
+    gauss.py's); then typography x1.35, the V40A + V34.1 block after the typography step, atlas_margin 0.32."""
+    raw = (HERE / SOV_FILE).read_bytes()
+    if hashlib.sha256(raw).hexdigest() != SOV_SHA256:
+        raise SystemExit(f"{SOV_FILE} is not the verified Sovereign Gold Apex notebook")
+    srcs = [c["source"] if isinstance(c["source"], str) else "".join(c["source"]) for c in json.loads(raw)["cells"]
+            if c["cell_type"] == "code"]
+    cells, after = [], "%%writefile gauss.py"
+    for head in ("%%writefile sibling_style.py", "%%writefile v34_pairwise.py", "# V34.1: run the lightweight A/B Pairwise verifier"):
+        hits = [x for x in srcs if x.startswith(head)]
+        if len(hits) != 1:
+            raise SystemExit(f"{SOV_FILE}: no single cell starts with {head!r}")
+        cells.append((after, hits[0])); after = head
+    inf = next(x for x in srcs if x.startswith("%%writefile infer.py"))
+    anchor = "    _safe_logits = _raw + _gate[:, None] * _evidence\n"
+    a = inf.index(anchor)
+    typo = "    _evidence = np.clip(1.35 * _evidence / max(float(_fw.sum()), 1e-6), -0.30, 0.30)\n"
+    assert inf.count(anchor) == 1 and inf.count(typo) == 1
+    return cells, [(TYPO12[0], typo), (anchor, inf[a:inf.index("    def _v31_sub(z):", a)]),
+                   ("'--atlas_margin', '0.3',", "'--atlas_margin', '0.32',")]
+
+
+SOV_CELLS, SOV_PATCHES = sov_parts()
+# 2026-11-03: Kirill Tymchishin's and lightningv08's public 0.665 / 0.666 keep only Sovereign's sibling-style residual
+# (V40A), at a conservative max_alpha 0.08. sib08 = its sibling_style.py cell and the V40A lines of its block after the
+# typography step, without the pairwise verifier, with our typography x1.5 and ATLAS margin 0.3.
+_V34_START = "    \n    # V34.1 Confidence-Gated Pairwise Verification Fusion\n"
+assert SOV_PATCHES[1][1].count(_V34_START) == 1 and SOV_PATCHES[1][1].count('max_alpha=0.10,') == 1
+assert SOV_PATCHES[1][1].count('        _safe_logits = apply_grouped_style_residual(\n') == 1
+# exp042: out of fold the blend predicts gemini-3.7-flash 81 times and 3.8-flash 199 (150 each): the LLM members are
+# unbiased between the two, the n-gram members lean to 3.8 (its pool rows outnumber 3.7's 21,550 to 3,278) and the SVC
+# weighs 12. +0.2 to +0.5 on the 3.7 log-score after the balancing step: +0.0015 (cross-fitted, +0.45 on 4 of 5 folds).
+G37 = ("        tot = (1 - a.sinkhorn) * np.log(P + 1e-12) + a.sinkhorn * np.log(Q + 1e-12)\n",
+       "        tot = (1 - a.sinkhorn) * np.log(P + 1e-12) + a.sinkhorn * np.log(Q + 1e-12)\n"
+       "        tot[:, LABELS.index('gemini-3.7-flash')] += 0.3   # fork (exp042): the n-gram members lean to gemini-3.8-flash\n")
+# exp047: the SVC's open-pool rows (source weight 0.35) are weighted by match_weight, per label mean 1 and clipped to
+# [0.25, 4] (exp046's best for a pool-trained model: +0.017 on the official rows). The block that writes the SVC's pool
+# file adds the weight; infer.py's SVC multiplies 0.35 by it.
+PW_PATCHES = [
+    ("_op[['text', 'model']].to_parquet('/kaggle/working/open_pool.parquet')\n",
+     "_mw = _op.match_weight.astype(float).fillna(1.0).clip(lower=1e-3)   # fork (exp047): the SVC weighs each pool row by match_weight\n"
+     "_mw = _mw / _mw.groupby(_op.model).transform('mean'); _mw = _mw.clip(0.25, 4.0); _mw = _mw / _mw.groupby(_op.model).transform('mean')\n"
+     "_op.assign(pool_w=_mw.astype('float32'))[['text', 'model', 'pool_w']].to_parquet('/kaggle/working/open_pool.parquet')\n"),
+    ("        _P = _P[_P.model.isin(LABELS)][['text', 'model']].copy()\n        _P['text'] = _P.text.fillna('').astype(str); _P['_srcw'] = 0.35\n",
+     "        _P = _P[_P.model.isin(LABELS)][['text', 'model'] + [c for c in ('pool_w',) if c in _P]].copy()\n"
+     "        _P['text'] = _P.text.fillna('').astype(str)\n"
+     "        _P['_srcw'] = 0.35 * (_P.pop('pool_w').astype(float) if 'pool_w' in _P else 1.0)   # fork (exp047): match_weight per pool row\n")]
+SIB08 = (SOV_PATCHES[1][0], SOV_PATCHES[1][1].split(_V34_START)[0].replace('max_alpha=0.10,', 'max_alpha=0.08,').replace(
+    '        _safe_logits = apply_grouped_style_residual(\n',
+    '        # fork: max_alpha 0.08, the conservative cap of the public 0.665 / 0.666 forks (Sovereign: 0.10)\n'
+    '        _safe_logits = apply_grouped_style_residual(\n') + '\n')
+# 2026-11-03: mohammedafreedpasha's public 0.667 (Name That LLM Solution) is the 0.667 code with "V35" of mercurydust's
+# pairwise verifier: 8 reference passages per class instead of 6, support thresholds 8/6/8 -> 6/5/6, '-' among the
+# punctuation counts, the mean of the top 4 references instead of 3, weight 0.12 instead of 0.10 on disputed rows. It ran
+# on Open Pool v14, where the same code without V35 scored 0.666 twice (v13: 0.667 three times).
+V35_CELL = [("ap.add_argument('--refs-per-class',type=int,default=6)", "ap.add_argument('--refs-per-class',type=int,default=8)", 1),
+            ("keys=sorted(global_support[global_support>=8].index.tolist())", "keys=sorted(global_support[global_support>=6].index.tolist())", 1),
+            ("g['id'].astype(str).nunique()<6: continue", "g['id'].astype(str).nunique()<5: continue", 1),
+            ("g['id'].astype(str).nunique()<8: continue", "g['id'].astype(str).nunique()<6: continue", 1),
+            ("""for z in ['.',',',';',':','!','?','—','"',"'",'(',')']]""", """for z in ['.',',',';',':','!','?','-','—','"',"'",'(',')']]""", 2),
+            ("np.sort(pp,axis=1)[:,-min(3,R):]", "np.sort(pp,axis=1)[:,-min(4,R):]", 1),
+            ("audit={'version':'V34.1',", "audit={'version':'V35',", 1)]
+V35_RUN = [("'--ab-root', _ab_root, '--out', _out_pair,", "'--ab-root', _ab_root, '--refs-per-class', '8', '--out', _out_pair,", 1)]
+V35_BLOCK = [("_safe_logits = _safe_logits + 0.10 * _gate[:, None] * _pair_log", "_safe_logits = _safe_logits + 0.12 * _gate[:, None] * _pair_log", 1),
+             ("log(f'V34.1 Pairwise applied:", "log(f'V35 Pairwise applied:", 1)]
+
+
+def v35(src, edits):
+    for old, new, n in edits:
+        if src.count(old) != n:
+            raise SystemExit(f"V35: {old!r} is not in Sovereign's code {n} time(s)")
+        src = src.replace(old, new)
+    return src
+
+
+V35_CELLS = [(SOV_CELLS[0]), (SOV_CELLS[1][0], v35(SOV_CELLS[1][1], V35_CELL)), (SOV_CELLS[2][0], v35(SOV_CELLS[2][1], V35_RUN))]
+V35_PATCHES = [SOV_PATCHES[0], (SOV_PATCHES[1][0], v35(SOV_PATCHES[1][1], V35_BLOCK)), *SOV_PATCHES[2:]]
+# a push attaches each dataset's current version: pp13 reads Open Pool v13 (190,588 passages, the file the 0.667 runs and
+# our 11-03 commits read) from an unmodified private copy instead of v14 (+20,781 passages, 2026-11-03 10:49 UTC)
+OPEN_POOL_V13 = "omerfarukmerey/ntl-open-pool-v13-pin"
+# exp039: kilupy's 18-model prompt-paired corpus (2026-11-02, CC BY 4.0: 16,603 Claude passages from the Anthropic API,
+# 3,338 prompts x 5 Claude models, + 300 prompts x the 13 other models via OpenRouter), none in the open pool or train,
+# appended to K's matched draw (so it reaches the TF-IDF, distort and SVC members at --extra_w)
+KILUPY = "kilupy/ntl-18-model-corpus"
+KX = ("EXTRA = '/kaggle/working/extra_matched.parquet'; _ex[['text', 'model']].to_parquet(EXTRA)\n",
+      "for _kf in sorted(glob.glob('/kaggle/input/**/ntl_18model_passages.parquet', recursive=True))[:1]:   # fork (exp039): kilupy's corpus\n"
+      "    _kx = _pd.read_parquet(_kf, columns=['text', 'model']); _ex = _pd.concat([_ex, _kx]); print('kilupy rows appended', len(_kx))\n"
+      "EXTRA = '/kaggle/working/extra_matched.parquet'; _ex[['text', 'model']].to_parquet(EXTRA)\n")
+# 2026-11-03: our own member, trained on the free TPU v5e-8 (kaggle/member/tpu_member.py, kernel ntl-tpu-op8): Qwen3-8B-Base
+# LoRA24, stage 1 on crtproduction's open pool (190k passages), stage 2 on the official rows once per exp015 fold and
+# once on all; read like q8v5 (same base, five fold adapters + the full one, plain head and centred twin)
+TPU_OP8 = "omerfarukmerey/ntl-tpu-op8"
+TPU_LL8Q14 = "omerfarukmerey/ntl-tpu-ll8q14"   # the same trainer on Llama-3.1-8B (ll8op1) and Qwen3-14B-Base (q14op1, keep 27)
+_LL8V5_DP = LL8V5.replace('"twin": 0.35}', '"twin": 0.35, "dp": True}')
+# member key -> (adapter tag, base variable, keep, batch, dp, kernel, description); MORE keys are <key>w<10 x weight>
+TPU_MEMBERS = {"op8": ("op8v1", "B8", 24, 16, True, TPU_OP8, "Qwen3-8B-Base"),
+               "ll8o": ("ll8op1", "BL", 24, 16, True, TPU_LL8Q14, "Llama-3.1-8B (Built with Llama)"),
+               "q14o": ("q14op1", "B14", 27, 8, False, TPU_LL8Q14, "Qwen3-14B-Base")}
+TPU_W = {f"{m}w{int(round(w * 10))}": (m, w) for m in TPU_MEMBERS for w in (0.5, 1.0, 1.5, 2.0, 3.0)}
+OP8_W = {k: w for k, (m, w) in TPU_W.items() if m == "op8"}
+
+
+def tpu_member(m, w):
+    tag, base, keep, bs, dp, _, _ = TPU_MEMBERS[m]
+    return (_LL8V5_DP, _LL8V5_DP + f'  {{"name": "{m}", "type": "l24", "path": {base}, "adapters": [adir(f\'{tag}_f{{k}}\') for k in range(5)] '
+            f'+ [adir(\'{tag}\')], "keep": {keep}, "layers": L, "w": {w}, "bs": {bs}, "max_len": 384, "twin": 0.35'
+            + (', "dp": True' if dp else '') + '},   # fork: our TPU-trained open-pool member\n')
+
+
+OP8 = {k: tpu_member("op8", w) for k, w in OP8_W.items()}
+MORE = {"ew10": (EXTRA_W["ew10"], " Those external rows count fully in the TF-IDF, distort and SVC fits (--extra_w 1.0 instead of 0.5)."),
+        **{k: (tpu_member(m, w), f" A LoRA24 member trained by us on Kaggle's free TPU v5e-8 joins at weight {w}: "
+                                    f"{TPU_MEMBERS[m][6]}, first on crtproduction's open pool (190k passages), then on the official "
+                                    "rows (five fold adapters and a full one, read like q8v5).") for k, (m, w) in TPU_W.items()},
+        **{t: (TFIDF_W[t], f" The TF-IDF member weighs {TFIDF_W[t][1][14:-2]} instead of 0.25.") for t in TFIDF_W},
+        "cx": (CX, " The complementary stack's extra passages also take the open pool's prompts answered by at least 12 models."),
+        "kx": (KX, " kilupy's 18-model corpus (20,503 passages, 16,603 of them Claude from the Anthropic API) is appended to those rows."),
+        "sov": (None, " After the typography step (evidence x1.35 instead of x1.5) come synthreaper's Sovereign Gold Apex steps: "
+                "Roman Tamrazov's sibling-style residual (max_alpha 0.10) and mercurydust's V34.1 pairwise verifier on the "
+                "ChatGPT A/B annotations (0.10 on low-margin rows); ATLAS's margin is 0.32."),
+        "g37": (G37, " After the balancing step the gemini-3.7-flash log-score gets +0.3 (exp042: the n-gram members lean to "
+                "gemini-3.8-flash, whose pool rows outnumber 3.7's 21,550 to 3,278)."),
+        "pw": (None, " The 4-view SVC weighs each open-pool row by its typography match_weight (per label mean 1, clipped to "
+               "[0.25, 4], times the pool's source weight 0.35) instead of 0.35 for every row."),
+        "sib08": (SIB08, " After the typography step comes Roman Tamrazov's sibling-style residual (V40A, as in synthreaper's "
+                  "Sovereign Gold Apex) at the conservative cap max_alpha 0.08 of Kirill Tymchishin's and lightningv08's forks."),
+        "v35": (None, " The pairwise verifier is mohammedafreedpasha's V35 (8 reference passages per class, looser support "
+                "thresholds, '-' counted, top-4 mean, weight 0.12 instead of 0.10)."),
+        "pp13": (None, " The open pool is read from an unmodified copy of its version 13 (190,588 passages), the file the 0.667 "
+                 "runs read, not version 14 (+20,781 passages since 2026-11-03)."),
+        "mw": (None, " In the complementary stack the open pool's rows count by their typography match_weight (per label mean "
+               "1, clipped to [0.25, 4]; a class's extra rows keep their share) in the stylegram SVC, its centred twin and "
+               "the GPT / Gemini / GLM gates (exp046)."),
+        "kc": (KC, " The stack's Claude gate also learns from kilupy's 16,603 Claude passages from the Anthropic API (exp039)."),
+        "v14": (None, " The open pool is read at its current Kaggle version 14 (211,369 passages), as a new copy of the "
+                "published 0.668 notebook would.")}
+for _name, _sk, _xm, _typo, _more in (("ntl-v31ac-a20-sk30-osvc12-xm2-p30", "sk30", 2, None, ()),   # K on our code
+                                      # 2026-11-03: J (areebbb's scored version 14, 1x) and the conservative V40A
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-p30", "sk30", 1, None, ()),   # J on our code
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-cx-p30", "sk30", 1, None, ("cx",)),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-cx-sib08-p30", "sk30", 1, None, ("cx", "sib08")),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-cx-sib08-p30", "sk30", 2, None, ("cx", "sib08")),
+                                      # the two public 0.666 lines together on J: J's rows + Sovereign's post-hoc steps
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-sov-p30", "sk30", 1, None, ("sov",)),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-cx-g37-p30", "sk30", 1, None, ("cx", "g37")),
+                                      # 2026-11-03 09:30: the Code tab's new top 0.667 (zbigniewkirchner) = J + Sovereign's steps (= -xm1-sov);
+                                      # our small changes go on top of it
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-sov-cx-p30", "sk30", 1, None, ("sov", "cx")),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-sov-g37-p30", "sk30", 1, None, ("sov", "g37")),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-sov-cx-g37-p30", "sk30", 1, None, ("sov", "cx", "g37")),
+                                      # exp047: the SVC's pool rows weighted by match_weight
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-sov-pw-p30", "sk30", 1, None, ("sov", "pw")),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-sov-g37-pw-p30", "sk30", 1, None, ("sov", "g37", "pw")),
+                                      # 2026-11-03 22:00: the 0.667 code + mohammedafreedpasha's V35 verifier, on Open Pool v13
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-sov-cx-v35-pp13-p30", "sk30", 1, None, ("sov", "cx", "v35", "pp13")),
+                                      # 2026-11-04: on the 0.668 (-xm1-sov-cx), V35 and kilupy's corpus at K's TF-IDF weight
+                                      # (its only LB test, #50, came with TF-IDF 1.5, and TF-IDF above 0.25 lost alone)
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-sov-cx-kx-pp13-p30", "sk30", 1, None, ("sov", "cx", "kx", "pp13")),
+                                      # the stack's op_ rows by match_weight (exp046), its Claude gate + kilupy's Claude rows
+                                      # (exp039), and the 0.668 on pool v14 (what a new copy of the published notebook reads)
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-sov-cx-mw-pp13-p30", "sk30", 1, None, ("sov", "cx", "mw", "pp13")),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-sov-cx-kc-pp13-p30", "sk30", 1, None, ("sov", "cx", "kc", "pp13")),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm1-sov-cx-v14-p30", "sk30", 1, None, ("sov", "cx", "v14")),
+                                      # 2026-11-03: J + our TPU-trained open-pool member (weights from exp045's replica)
+                                      *((f"ntl-v31ac-a20-sk30-osvc12-xm1-{_o}-p30", "sk30", 1, None, (_o,)) for _o in OP8_W),
+                                      *((f"ntl-v31ac-a20-sk30-osvc12-xm1-sov-{_o}-p30", "sk30", 1, None, ("sov", _o)) for _o in OP8_W),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm4-p30", "sk30", 4, None, ()),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm3-p30", "sk30", 3, None, ()),
+                                      ("ntl-v31ac-a20-sk60-osvc12-xm2-typo12-p30", "sk60", 2, "12", ()),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-ew10-p30", "sk30", 2, None, ("ew10",)),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-tf50-p30", "sk30", 2, None, ("tf50",)),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm4-tf50-p30", "sk30", 4, None, ("tf50",)),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-cx-p30", "sk30", 2, None, ("cx",)),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm4-cx-p30", "sk30", 4, None, ("cx",)),
+                                      # exp034: out of fold the matched rows lift the TF-IDF member (2x: 0.418 -> 0.464) and
+                                      # its best weight in the replica (0.25 +0.0015, 0.5 +0.0037, 0.75 +0.0055, 1.0 +0.0048)
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-tf75-p30", "sk30", 2, None, ("tf75",)),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm4-tf75-p30", "sk30", 4, None, ("tf75",)),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-tf100-p30", "sk30", 2, None, ("tf100",)),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm4-tf100-p30", "sk30", 4, None, ("tf100",)),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-tf75-cx-p30", "sk30", 2, None, ("tf75", "cx")),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm4-tf75-cx-p30", "sk30", 4, None, ("tf75", "cx")),
+                                      # exp036: with the SVC refitted on the same rows too, 2x beats 4x and TF-IDF 0.5 is the
+                                      # steadiest weight on K (+0.0044, 4 of 5 folds up)
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-tf50-cx-p30", "sk30", 2, None, ("tf50", "cx")),
+                                      # the two public 0.666 lines together: K's rows + Sovereign's post-hoc steps
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-sov-p30", "sk30", 2, None, ("sov",)),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-tf50-sov-p30", "sk30", 2, None, ("tf50", "sov")),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-tf50-sov-cx-p30", "sk30", 2, None, ("tf50", "sov", "cx")),
+                                      # exp039: K's rows + kilupy's 18-model corpus
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-kx-p30", "sk30", 2, None, ("kx",)),
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-tf50-kx-p30", "sk30", 2, None, ("tf50", "kx")),
+                                      # exp039: with kilupy's rows in all three members the TF-IDF weight peaks higher
+                                      # (1.0 0.6554, 1.5 0.6568, 2.0 0.6587 vs K + TF-IDF 0.5's 0.6542; mostly fold 4)
+                                      ("ntl-v31ac-a20-sk30-osvc12-xm2-tf150-kx-p30", "sk30", 2, None, ("tf150", "kx"))):
+    _knobs = [SK[_sk], osvc_xm(_xm), ("'--svc_w', '1.5',", "'--svc_w', '12',")] + ([TYPO[_typo]] if _typo else []) \
+        + [MORE[m][0] for m in _more if m not in ("sov", "pw", "v35", "pp13", "mw", "v14")] \
+        + ((V35_PATCHES if "v35" in _more else SOV_PATCHES) if "sov" in _more else []) \
+        + (PW_PATCHES if "pw" in _more else []) + (CXMW_PATCHES if "mw" in _more else []) + P30
+    VARIANTS[_name] = {
+        "base": "v31",
+        "patches": [MIRROR_LLAMA_AC] + LLAMA_COPY + FAST_COMMIT_V31 + ATLAS_TO_DEADLINE_V31 + L24_DP
+        + [("'--atlas_w', '0.10'", "'--atlas_w', '0.20'")] + PIN_10_28 + _knobs,
+        "check": (lambda chk, sib, pair: lambda code: chk(code) and code.count("%%writefile sibling_style.py") == sib
+                  and code.count("from sibling_style import apply_grouped_style_residual") == sib
+                  and code.count("%%writefile v34_pairwise.py") == pair)(
+            combo_check(_knobs, None), int("sov" in _more or "sib08" in _more), int("sov" in _more)),
+        "cells": (V35_CELLS if "v35" in _more else SOV_CELLS) if "sov" in _more else SOV_CELLS[:1] if "sib08" in _more else [],
+        "models": [LLAMA_AC], "drop_kernels": [LLAMA_CACHE],
+        "datasets": [OPEN_POOL_V13 if "pp13" in _more else OPEN_POOL] + ([AB_DATA] if "sov" in _more else [])
+        + ([KILUPY] if "kx" in _more or "kc" in _more else []),
+        "kernels": sorted({TPU_MEMBERS[TPU_W[m][0]][5] for m in _more if m in TPU_W}),
+        "intro": V31_INTRO + " ATLAS-8B is mixed at 20% instead of 10%."
+        + f" The balancing goes {int(_sk[2:])}% of the way to the balanced log-probabilities instead of 45%."
+        + " The 4-view SVC learns from crtproduction's open pool instead of nlm_pool_v5, at weight 12 (zbigniewkirchner's 0.664)."
+        + f" The external rows behind the TF-IDF, distort and SVC members are {_xm} x nlm_matched_clean's count per label, "
+        "drawn from the open pool by its typography match_weight (areebbb's scored 0.666, their version J: 1 x; their K: 2 x)."
+        + (f" The typography step's evidence is scaled by {int(_typo) / 10:.1f} instead of 1.5 (judith007's 0.664)." if _typo else "")
+        + "".join(MORE[m][1] for m in _more)
+        + V31AC_INTRO + " The extra passages are pinned to their 2026-10-30 batches (the 10,743 rows judith007's 0.664 and "
+        "areebbb's 0.666 runs read; the batches added since are dropped)."}
 BASES = {"nlm-v27": (BASE, BASE_SHA256, "upstream_nlm_v27.meta.json"),
          "v31": (V31_FILE, V31_SHA256, "upstream_mercury_v31.meta.json")}
 

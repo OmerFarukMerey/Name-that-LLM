@@ -15,6 +15,7 @@ prompt bootstrap and a cross-fitted choice of k (k picked on 24 of the 30 prompt
 
     PYTHONPATH=src python experiments/exp029_atlas_ext.py [off_dir ext_dir]
     PYTHONPATH=src python experiments/exp029_atlas_ext.py pool ext_dir [ext_dir ...]   # power mix on several held-out folds
+    PYTHONPATH=src python experiments/exp029_atlas_ext.py pair a_dir,b_dir [a_dir,b_dir ...]   # two retrains per fold
 
 Default dirs: outputs/exp029_atlas_ext/{off,ext}/atlas_out/, each kernel's output (holdout_scores.npz).
 """
@@ -109,10 +110,65 @@ def pooled(dirs):
     json.dump(R, open(OUT / "metrics_pooled.json", "w"), indent=1)
 
 
+def paired(pairs):
+    """Two retrains per held-out fold (each pair: "dir_a,dir_b", two kernels' atlas_out on the same fold): the power mix
+    with bundle a alone, with the mean of a and b, and with their geometric mean, on the rows both scored."""
+    train = load_train()
+    labels = np.array(E.NLM_LABELS)
+    y_all = train.model.map({l: i for i, l in enumerate(E.NLM_LABELS)}).to_numpy()
+    folds = prompt_folds(train.prompt_id.to_numpy())
+    ids_all = train.id.astype(str).to_numpy()
+    rows, A1, A2 = [], [], []
+    for pair in pairs:
+        da, db = map(Path, pair.split(","))
+        f = json.load(open(da / "holdout_metrics.json"))["holdout_fold"]
+        assert json.load(open(db / "holdout_metrics.json"))["holdout_fold"] == f, pair
+        fr = np.flatnonzero(folds == f)
+        (a, oa, ka), (b, ob, kb) = load_scores(da, ids_all[fr].tolist(), f), load_scores(db, ids_all[fr].tolist(), f)
+        ka, kb = np.array(ka), np.array(kb)
+        both = ka & kb
+        rows.append(fr[both]); A1.append(a[oa][both[ka]]); A2.append(b[ob][both[kb]])
+        print(f"fold {f}: {da.parent.name} {int(ka.sum())} rows, {db.parent.name} {int(kb.sum())}, both {int(both.sum())}")
+    rows, A1, A2 = np.concatenate(rows), np.concatenate(A1), np.concatenate(A2)
+    geo = np.sqrt(A1 * A2)
+    A = {"a": A1, "b": A2, "mean": (A1 + A2) / 2, "geo": geo / geo.sum(1, keepdims=True)}
+    P = replica(train)[rows]
+    y, prompts, truth, fold = y_all[rows], train.prompt_id.to_numpy()[rows], train.model.to_numpy()[rows], folds[rows]
+    score = lambda pred, m=slice(None): balanced_accuracy(truth[m], labels[pred[m]])
+    s = np.sort(P, 1); low = (s[:, -1] - s[:, -2]) < 0.3
+
+    def power_mix(Aa, k):
+        Pm = P.copy()
+        Pm[low] = 0.8 * P[low] + 0.2 * Aa[low]
+        Pm[low] *= Aa[low] ** k
+        return soft_sinkhorn(Pm / Pm.sum(1, keepdims=True)).argmax(1)
+
+    cur = power_mix(A1, 0)
+    fl = sorted(set(fold.tolist()))
+    R = {"rows": int(len(rows)), "folds": fl, "linear20": score(cur),
+         "alone": {n: score(v.argmax(1)) for n, v in A.items()}, "agree_ab": float((A1.argmax(1) == A2.argmax(1)).mean())}
+    print(f"{len(rows)} rows on folds {fl}; alone " + ", ".join(f"{n} {v:.4f}" for n, v in R["alone"].items())
+          + f"; a and b agree on {R['agree_ab']:.3f} of argmaxes; the 20% linear mix {score(cur):.4f}")
+    for k in (2, 3, 4, 5, 6, 8):
+        preds = {n: power_mix(v, k) for n, v in A.items()}
+        R[f"k{k}"] = {n: {"score": score(p), "vs_linear20": paired_bootstrap(y, p, cur, prompts),
+                          "per_fold": {int(f): score(p, fold == f) - score(cur, fold == f) for f in fl}}
+                      for n, p in preds.items()}
+        for n in ("mean", "geo"):
+            R[f"k{k}"][n]["vs_a"] = paired_bootstrap(y, preds[n], preds["a"], prompts)
+        print(f"  k {k}: " + "; ".join(
+            f"{n} {score(p):.4f} ({R[f'k{k}'][n]['vs_linear20'][0]:+.4f}"
+            + (f", vs a {R[f'k{k}'][n]['vs_a'][0]:+.4f} [{R[f'k{k}'][n]['vs_a'][1]:+.4f}, {R[f'k{k}'][n]['vs_a'][2]:+.4f}]"
+               if n in ("mean", "geo") else "") + ")" for n, p in preds.items()))
+    json.dump(R, open(OUT / "metrics_paired.json", "w"), indent=1)
+
+
 def main():
     args = [a for a in sys.argv[1:] if a != "--plain"]
     if args[:1] == ["pool"]:
         return pooled(args[1:])
+    if args[:1] == ["pair"]:
+        return paired(args[1:])
     off_dir, ext_dir = (args + [None, None])[:2]
     off_dir = OUT / "off" / "atlas_out" if off_dir is None else Path(off_dir)
     ext_dir = OUT / "ext" / "atlas_out" if ext_dir is None else Path(ext_dir)

@@ -368,6 +368,7 @@ The complementary stack fits its stylegram SVC, that SVC's centred twin and the 
 AR_0666 = "{K}/code/areebbb/ntl-we-back-0-666"
 AR_J_AJ = "{K}/code/ayodejiibrahimlateef/ntllm-areeb-j-open-pool-control-20261102"
 AR_J_RK = "{K}/code/rahulkrttty/ntl-v14-apex-0-666"
+V15_ROWS = "212,623"   # the open pool at Kaggle version 15 (release v13, 2026-11-05: version 14 + 1,254 passages)
 SOV_NB = "{K}/code/synthreaper/ntl-sovereign-gold-apex"
 ZK_0667 = "{K}/code/zbigniewkirchner/0-667-pairwise-verifier-matched-external-rows"
 AC_0666 = "{K}/code/alexchilton/name-that-llm-0-666-all-public-what-failed"
@@ -379,6 +380,7 @@ AF_0667 = "{K}/code/mohammedafreedpasha/name-that-llm-solution"
 MH_0667 = "{K}/code/matterhorn3838/name-that-llm-v1"
 AC_0667 = "{K}/code/alexchilton/name-that-llm-0-667-all-public-what-failed"
 PP13_REF = "omerfarukmerey/ntl-open-pool-v13-pin"
+SNAP13_REF = "melvindenishl/ntl-open-pool-v13-snapshot"   # public, ntl_open_pool.parquet sha256-identical to PP13_REF (2026-11-06)
 V35_SECTION = """## The pairwise verifier with V35's settings
 
 mohammedafreedpasha's [Name That LLM Solution]({af}) (public 0.667) is the 0.667 notebook with one change, "V35" of mercurydust's pairwise verifier. The verifier scores a test passage against each model by pairing it with verified reference passages of that model (char and word similarity, the A/B evidence-quote profiles, task and structure agreement, length and punctuation); V35 changes five numbers in it:
@@ -397,6 +399,12 @@ PP13_SECTION = """## The open pool at its Kaggle version 13
 
 crtproduction published release v12 of the [open pool]({pool}) on 2026-11-03 (Kaggle version 14: +20,781 passages, 211,369 in all), and a saved notebook always attaches each dataset's newest version. The 0.667 code scored 0.667 on version 13 ([zbigniewkirchner]({zk7}), [matterhorn3838]({mh})) and 0.666 in two runs on version 14 (mohammedafreedpasha's previous version, alexchilton's [latest version]({ac7})), a gap inside the run-to-run noise but in the wrong direction. So this version reads version 13 from an unmodified copy, [ntl-open-pool-v13-pin]({pin}) (the same `ntl_open_pool.parquet`, sha256 `38e48b40…`, CC BY-SA 4.0 like the original): the SVM's pool and the matched rows are exactly those of the 0.667 runs (the commit log prints `svc pool = open pool 190588`).{pp_note}
 """
+SNAP13_SWAP = ("So this version reads version 13 from an unmodified copy, [ntl-open-pool-v13-pin]({pin}) (the same "
+               "`ntl_open_pool.parquet`, sha256 `38e48b40…`, CC BY-SA 4.0 like the original)",
+               "So the scored run read version 13 from our unmodified copy, and this public version attaches "
+               "melvindenishl's public [ntl-open-pool-v13-snapshot]({snap}), the same file (we checked: "
+               "`ntl_open_pool.parquet`, sha256 `38e48b40…`, CC BY-SA 4.0 like the original), so a copy reads what "
+               "the scored run read")
 XM_SECTION = """## Matched open-pool rows behind the n-gram members ({xm}×)
 
 Three members learn from external passages besides the official rows: the TF-IDF logistic regression (weight 0.25), the text-distortion member (0.10) and the 4-view SVM. V31 passes them Dhruv Tibarewal's `nlm_matched_clean` (24,443 passages after de-duplication) at sample weight 0.5 (`--extra`, `--extra_w 0.5`). areebbb's [0.666 notebook]({ar}) (a controlled ladder on alexchilton's [all-public fork]({ac}) of our 0.663) replaces them with passages drawn from the [open pool]({pool}) by its `match_weight` column, which crtproduction fitted so that the drawn passages match each model's typography in the official rows (dashes, quotes and the like): the same count per model as `nlm_matched_clean` in their version J, the one that scored 0.666 (two public reruns of it, [ayodeji's]({aj}) and [rahulkrttty's]({rk}), scored 0.666 too), and twice that count (48,886 passages) in their next version K. This version draws **{xm}×** ({n_rows} passages; a model with fewer pool passages gives all it has) with the same weights and seed: the setup cell writes them to `/kaggle/working/extra_matched.parquet` and passes that file as `--extra`. In the SVM the drawn passages count at 0.5 and the rest of the open pool at 0.35 (each exact duplicate is kept once). The draw is pandas' `sample(n, weights='match_weight', random_state=0)` written out in numpy (newer pandas refuses so heavily weighted a draw without replacement), so it gives the same rows under any pandas version.{x_note}
@@ -443,10 +451,63 @@ The complementary stack's n-gram parts (its stylegram SVC, that SVC's prompt-cen
 TPU_KERNELS = {"op8": "omerfarukmerey/ntl-tpu-op8", "ll8o": "omerfarukmerey/ntl-tpu-ll8q14", "q14o": "omerfarukmerey/ntl-tpu-ll8q14"}
 TPU_DESC = {"op8": ("Qwen3-8B-Base", "op8v1", "Qwen3-8B"), "ll8o": ("Llama-3.1-8B", "ll8op1", "Llama-3.1-8B"),
             "q14o": ("Qwen3-14B-Base", "q14op1", "Qwen3-14B")}
-TPU_SECTION = """## A new member: {desc}, trained on Kaggle's free TPU
+TPU_SECTION = """## {head}
 
-The recipe's LoRA members are its strongest parts, and all of them were trained on T4s on a 120k-passage pool. This version adds a sixth one that we trained on Kaggle's free **TPU v5e-8** (20 h a week, separate from the GPU quota), following GoPain's [measurements]({gp}) (a Qwen3-8B LoRA classifier ~14× faster than on T4 ×2, bf16 instead of fp16): kernel [{kernel}]({tk}). It is the same model as the recipe's LoRA24 members (Lucas Boesen's LoRA24 recipe with Dhruv Tibarewal's two stages): {desc} cut to its first {keep} layers and frozen, LoRA rank 16 on every projection, the mean of 8 depths with one LayerNorm each into a plain and a prompt-centred head, trained on same-prompt triplets. What is new is the data and the hardware: stage 1 reads crtproduction's [open pool]({pool}) ({pool_rows} passages; no train-prompt rows) with class weights, then stage 2 fine-tunes on the 2,699 official rows once per held-out prompt fold and once on all of them, so this notebook reads it like the 8B members: five fold adapters and the full one, averaged, at weight **{w}**, with its prompt-centred twin. The trainer is a torch_xla SPMD port of the GPU recipe (one process, the batch split over the 8 chips, fixed batch shapes so each compiles once, XLA's own gradient checkpointing); a GPU reload check through this notebook's own merge path agreed with the TPU's predictions.{tpu_note}
+The recipe's LoRA members are its strongest parts, and all of them were trained on T4s on a 120k-passage pool. This version {role} that we trained on Kaggle's free **TPU v5e-8** (20 h a week, separate from the GPU quota), following GoPain's [measurements]({gp}) (a Qwen3-8B LoRA classifier ~14× faster than on T4 ×2, bf16 instead of fp16): kernel [{kernel}]({tk}). It is the same model as the recipe's LoRA24 members (Lucas Boesen's LoRA24 recipe with Dhruv Tibarewal's two stages): {desc} cut to its first {keep} layers and frozen, LoRA rank 16 on every projection, the mean of 8 depths with one LayerNorm each into a plain and a prompt-centred head, trained on same-prompt triplets. What is new is the data and the hardware: stage 1 reads crtproduction's [open pool]({pool}) ({pool_rows} passages; no train-prompt rows) with class weights, then stage 2 fine-tunes on the 2,699 official rows once per held-out prompt fold and once on all of them, so this notebook reads it {reads}. The trainer is a torch_xla SPMD port of the GPU recipe (one process, the batch split over the 8 chips, fixed batch shapes so each compiles once, XLA's own gradient checkpointing); a GPU reload check through this notebook's own merge path agreed with the TPU's predictions.{tpu_note}
 """
+SP_TOP2 = "{K}/code/sambitpadhan/ntl-four-top2-gate"
+LM_M70 = "{K}/code/lomnafsk/ntl-triple-margin0-7"
+AB_0669 = "{K}/code/aboodps/ntl-672-sinkhorn-050"   # 2026-11-05: the 0.672's version 4 + Sinkhorn target mix 0.50, public 0.669
+VFIX_SECTION = """## The pairwise verifier reads each test passage's own features
+
+sambitpadhan's [NTL Four Top2 Gate]({sp}) (public 0.667) corrects an indexing slip in V34.1's test loop that every notebook in this line runs. `Cte` and `Wte` hold the test passages' character and word TF-IDF rows only, and `q` already counts test passages, but the loop reads `Cte[q-start]`, `Wte[q-start]` and `test_texts[z-start]`: from the second batch of 128 on, four of the verifier's ten pair features (character and word similarity, length ratio, punctuation profile) come from one of the first 128 test passages instead of the passage being scored, while the training pairs are built correctly. This version reads `Cte[q]`, `Wte[q]` and `test_texts[z]` (three lines of `v34_pairwise.py`). Out of fold (the verifier rerun on five prompt-grouped folds of train, its A/B evidence and canonical rows cut to the training folds) the fix does not make it informative on unseen prompts (alone 0.046 balanced accuracy as published, 0.040 fixed; chance 0.056), but fused as `infer.py` fuses it, on our replica of the core, it costs less: −0.0004 instead of −0.0018 (95% prompt bootstrap −0.0037 to +0.0030, against −0.0048 to +0.0011).{vfix_note}
+"""
+TOP2_SECTION = """## The verifier only between the blend's top two
+
+sambitpadhan's Top2 gate (from their [NTL Four Top2 Gate]({sp}), public 0.667): on the disputed passages (top-2 margin below 0.35) the verifier's evidence is applied only when its own pick is one of the blend's two best models, so it can settle a close call between those two but never pull in a third (two lines in `infer.py`'s fusion block).{top2_note}
+"""
+AM70_INSIDE = ("and this version also widens the passages ATLAS scores from a top-2 margin below 0.32 (Sovereign's) to below "
+               "**0.7** (`--atlas_margin 0.7`), past that reach: on passages with a margin between 0.43 and 0.7 the mix "
+               "cannot flip a pick, it only pulls them towards ATLAS's nearly flat scores before the balancing")
+AM70_NOTE = ("\nThese are lomnafsk's two numbers. Their [NTL triple margin0.7]({lm}) (public 0.667) is alexchilton's rerun of "
+             "our 0.663 notebook (0.662) with ATLAS at 30% below margin 0.7, the typography evidence at ×1.2 and the SVM at "
+             "weight 3; its siblings with ATLAS at 40%, Sinkhorn 0.6 or the SVM at 5 scored below 0.665, so the wide margin "
+             "looks like the lever. Joseph Adamski found that an equal guess in ATLAS's place, at the same weight, scores "
+             "almost as well (0.662 against 0.663 on our 0.663 notebook), so on these passages ATLAS works mostly as "
+             "smoothing before the balancing. Our own earlier test of a wider gate, 30% below 0.45 on V31, scored the same "
+             "as 20% below 0.3 (0.662 both, same inputs).")
+PV0_SECTION = """## The pairwise verifier at weight 0
+
+Out of fold the V34.1 verifier is uninformative on prompts it has not seen (rerun on five prompt-grouped folds of train, its A/B evidence and canonical rows cut to the training folds): alone it scores 0.046 balanced accuracy (chance 0.056), the true model ranks 8.8 of 0-17 on average (random 8.5), and its probabilities are nearly flat (mean top probability 0.074). Fused as `infer.py` fuses it, on our replica of the core it costs −0.0018 (95% prompt bootstrap −0.0048 to +0.0011). This version keeps every cell and sets the fusion weight to 0 (one line in `infer.py`): the verifier still runs and logs, but the submission is the blend without its nudge.{pv_note}
+"""
+# 2026-11-05: ozertuu's public 0.672 = our 0.668 + Nuri Dudak's two Qwen3-14B adapters in the n14b member and a pre-fit SVM;
+# its version 1 scored (open-pool SVM 4.0, ozertuu's private Super-SVC V5 at 6.0), versions 2-4 fall back to Nuri Dudak's
+# v4n SVM with other weights (renamed at version 4, 11:58 UTC)
+OZ_0672 = "{K}/code/ozertuu/0-672-dual-svc-blend-residual-refinement"
+OUR_0668 = "{K}/code/omerfarukmerey/0-668-verifier-matched-rows-pool-prompts"
+ND_DATA = ("nuridudak/ntl-q14-lora", "nuridudak/ntl-q14-lora-v4", "nuridudak/ntl-svc-prefit-pool-v4n")
+Z672_SECTION = """## ozertuu's 0.672: two more Qwen3-14B adapters and a second, pre-fit SVM
+
+ozertuu's [0.672 | Dual-SVC Blend + Residual Refinement]({oz}) is our [0.668 notebook]({ours}) with three additions. Its version 1 is the one that scored **0.672** (the notebook's page: "Best Score 0.672 V1"); the later versions keep the code and change the SVM weights:
+
+* **The Qwen3-14B part-two member reads three adapters.** Nishant Dahal's checkpoint is averaged with Nuri Dudak's [ntl-q14-lora]({q1}) and [ntl-q14-lora-v4]({q4}), adapters of the same recipe (Qwen3-14B-Base cut to 27 layers, the same eight read-out layers and end token; his metadata reports out-of-fold balanced accuracy 0.627 and 0.636 for their plain heads), and the member's weight goes from 2.5 to 2.8. `infer.py` averages a member's adapters equally, so the spec's `adapter_weights` entry is not read. Each adapter is one more pass of the 14B model over the test set; ATLAS stops at a fixed deadline, so it has that much less time.
+* **A second, pre-fit SVM.** The notebook looks for ozertuu's "Super-SVC V5" (its code: trained on 39.8k clean, balanced pool passages plus Claude extras, CV 0.3630), which version 1 loaded; that dataset is not public, and without it the same code falls back to Nuri Dudak's [ntl-svc-prefit-pool-v4n]({svc}) (CC BY-SA 4.0), a 4-view LinearSVC (character 3-5, word 1-3, word-shape 2-6 and function-word 1-3 n-grams, C 0.5, balanced classes) fitted on his 241,675-passage pool plus the official rows. It rebuilds the SVM's vectorizers from the stored vocabularies and idf vectors and mixes the log-softmax of its decision values into the blend (`--ours_svc_w`). Version 1 weighed that SVM **6.0** and cut the open-pool SVM from 12 to **4.0**; versions 2-3 weigh the pre-fit SVM 0.85 beside the open-pool SVM at 12, version 4 1.2 beside 10 (with ATLAS at 22% below margin 0.36). {svc_choice}
+* **A LightGBM that does not run here.** The same block asks for a "top34" LightGBM (`--top34_w`), but the model file it loads (`top34.lgb`) is not in Nuri Dudak's dataset (which holds 25 per-fold models for 34 features, while the block computes 16), so it stops there, inside a `try` that logs a warning; the SVM is already in the blend by then. Whether version 1's private dataset held that file cannot be seen from outside; this version runs without it.
+
+Version 1 ran on version 14 of the open pool (its commit log prints `svc pool = open pool 211369`); {pool_line} ozertuu's notebook lists Kaggle's environment image `de153e6d`, which this version pins too (our 0.668 ran in `2757e0c7`).{z_note}
+"""
+BS_SECTION = """## The second SVM, fitted in the notebook: balanced, on open-pool passages
+
+The SVM that version 1 of the 0.672 read is private, and without it that code scores 0.668 (its public versions fall back to Nuri Dudak's SVM at 1.2 beside 10). ozertuu's later notebooks describe it in a code comment: "Super-SVC V5 (trained on 39.8k clean balanced pool + Claude extra, CV 0.3630)". This version follows that description with public data, and fits the SVM during the run from inputs that are already attached:
+
+* **Rows.** crtproduction's open pool without its passages regenerated from training prompts: **2,211 passages per model** (39.8k / 18), twice that for the five Claude models, drawn with probability proportional to the pool's typography `match_weight` (the same draw as the matched rows above). Passages whose normalised text equals a training passage are dropped, as in `infer.py`.
+* **Model.** The four views of Nuri Dudak's SVM (character 3-5, word 1-3, word-shape 2-6 and function-word 1-3 n-grams; TF-IDF with sublinear tf, min_df 2; view weights 1, 0.7, 0.5, 0.5) and a LinearSVC with C 0.5 and **balanced class weights**. It takes about 5 minutes on the CPU.
+* **Use.** It is saved in the pre-fit SVM's format (vocabularies, idf vectors, coefficients), read back and checked against the fitted model on 64 training passages, and from there `infer.py` treats it exactly like the pre-fit SVM: the log-softmax of its decision values, at weight **{w}**.
+
+Unlike the other n-gram models in the blend, it learns from no official rows, only from the pool's public generations. Out of fold on the official rows (our replica of this blend, validated grouped by prompt because the test prompts are unseen) it reaches balanced accuracy 0.470 alone, and {replica} over version 4's two SVMs (10 + 1.2): within noise, so the leaderboard decided.{bs_note}
+"""
+BS_REPLICA = {"6.0/10.0": "beside the open-pool SVM at 10, at 6, it moved the blend by +0.004 (95% interval -0.003 to +0.011)",
+              "6.0/4.0": "at version 1's 4 + 6 it moved the blend by -0.001 (at 10 + 6: +0.004, 95% interval -0.003 to +0.011)"}
 PAY_COPY_AC = ("* **Llama-3.1-8B is copied to local disk before loading.** From avazaku's notebook-output mount, "
                "`from_pretrained` took ~2,050 s (CPU probe) and ~2,140 s (our GPU run), against 88-135 s for one sequential "
                "copy and ~60 s to load from local disk; from alexchilton's model the copy takes 203-274 s. Same bytes, same "
@@ -487,6 +548,8 @@ def build_v31ac(kernel, results, scored):
     codes = code_cells(nb)
     assert code_cells(json.loads(Path(scored).read_text(encoding="utf-8"))) == codes, "local build != scored version"
     tokens = kernel.split("-")
+    if "s668" in tokens:   # 2026-11-05: kernel names past Kaggle's 50 characters write the scored 0.668's knobs as s668
+        tokens[tokens.index("s668"):tokens.index("s668") + 1] = ["a20", "sk30", "osvc12", "xm1", "sov", "cx"]
     pct = next(int(t[1:]) for t in tokens if re.fullmatch(r"a[1-9][05]", t))
     gpct = next((int(t[3:]) for t in tokens if re.fullmatch(r"gsq[1-9][0-9]", t)), None)
     sk = next((int(t[2:]) for t in tokens if re.fullmatch(r"sk[1-9][05]", t)), None)   # exp028 knobs
@@ -511,19 +574,40 @@ def build_v31ac(kernel, results, scored):
     mw = "mw" in tokens     # 2026-11-04 (exp046): the stack's open-pool rows weighted by match_weight
     kc = "kc" in tokens     # 2026-11-04 (exp039): kilupy's Claude passages in the stack's Claude gate
     v14 = "v14" in tokens   # 2026-11-04: the open pool at its Kaggle version 14, not pinned
+    v15 = "v15" in tokens   # 2026-11-05: the open pool at its Kaggle version 15, not pinned
     tpu = [(m.group(1), int(m.group(2)) / 10) for m in (re.fullmatch(r"(op8|ll8o|q14o)w(5|10|15|20|30)", t) for t in tokens) if m]
+    op8r = "op8r" in tokens   # 2026-11-04: op8 in q8v5's line (same weight 2.0, twin and gaussian head)
+    tpu += [("op8", 2.0)] * op8r
+    v14 = v14 or (op8r and not pp13)   # pushed 2026-11-04 21:50 UTC: unpinned, it attached pool v14 (its log: 211369)
+    vfix = "vfix" in tokens   # 2026-11-05: sambitpadhan's fix of V34.1's test-loop indices
+    top2 = "top2" in tokens   # 2026-11-05: sambitpadhan's Top2 gate on the pairwise fusion
+    am70 = "am70" in tokens   # 2026-11-05: lomnafsk's ATLAS 30% below margin 0.7 (after Sovereign's 0.32)
+    pv0 = "pv0" in tokens     # 2026-11-05 (exp048): the pairwise verifier fused at weight 0
+    tm = next((int(t[2:]) for t in tokens if re.fullmatch(r"tm(50|75)", t)), None)   # 2026-11-05: the balancing's target mix
+    z672 = "z672" in tokens   # 2026-11-05: ozertuu's public 0.672 (n14b over three adapters, Nuri Dudak's pre-fit SVM)
+    v15 = v15 or (z672 and not pp13)   # pushed 2026-11-05 09:37 UTC or later: unpinned, they attached pool v15
+    w46, w4 = "w46" in tokens, "w4" in tokens   # 2026-11-05: the SVM weights of the 0.672's scored version 1 / of its version 4
+    w106 = "w106" in tokens   # 2026-11-06 (exp049): open-pool SVM at version 4's 10, the second SVM at version 1's 6
+    bs = "bs" in tokens       # 2026-11-06 (exp049): our balanced SVM, fitted in the notebook, in the pre-fit SVM's place
+    assert (z672 or not (w46 or w4 or w106 or bs)) and w46 + w4 + w106 <= 1
+    osvc_w, zsvc_w = ("4.0", "6.0") if w46 else ("10.0", "6.0") if w106 else ("10.0", "1.2") if w4 else (osvc_w, "0.85")
     assert tokens[:2] == ["ntl", "v31ac"] and set(tokens[2:]) <= {f"a{pct}", f"gsq{gpct}", "m45", f"sk{sk}", f"comp{cpct}",
                                                                   f"osvc{osvc}", f"ax{ax}", f"typo{typo and typo.replace('.', '')}",
                                                                   "p30", f"xm{xm}", "ew10", f"{tf}", "cx", "kx", "sib08", "sov", "g37",
-                                                                  "v35", "pp13", "mw", "kc", "v14", *(f"{m}w{int(w * 10)}" for m, w in tpu)}, kernel
+                                                                  "v35", "pp13", "mw", "kc", "v14", "v15", "op8r", "vfix", "top2", "am70", "pv0",
+                                                                  "z672", "w46", "w4", "w106", "bs", f"tm{tm}",
+                                                                  *(f"{m}w{int(w * 10)}" for m, w in tpu)}, kernel
     assert not (sib and sov) and not ((sib or sov) and typo) and (sov or not v35)
+    assert (sov or not (vfix or top2 or am70 or pv0)) and not (v35 and (vfix or top2 or pv0)) and not (pv0 and top2) and not (am70 and m45)
+    pct = 30 if am70 else 22 if w4 else pct   # the run cell's ATLAS weight: lomnafsk's 30% (ozertuu's version 4: 22%)
     assert pp13 == (PP13_REF in meta["dataset_sources"]) and not (pp13 and OPEN_POOL_DS.split("/datasets/")[1] in meta["dataset_sources"])
     assert cx == ("# fork (exp035): the open pool's prompts" in "".join(codes))
     assert kx == ("# fork (exp039): kilupy's corpus" in codes[0]) and (not kx or xm in (1, 2)) and (not kx or tf or xm == 1)
     assert mw == ("# fork (exp046): with its typography match_weight" in "".join(codes)) and (cx or not mw)
     assert kc == ("# fork (exp039): kilupy's Claude rows" in "".join(codes)) \
         and (kx or kc) == ("kilupy/ntl-18-model-corpus" in meta["dataset_sources"])
-    assert not (v14 and pp13) and (not v14 or OPEN_POOL_DS.split("/datasets/")[1] in meta["dataset_sources"])
+    assert not ((v14 or v15) and pp13) and not (v14 and v15) \
+        and (not (v14 or v15) or OPEN_POOL_DS.split("/datasets/")[1] in meta["dataset_sources"])
     assert (f"_draw(g, min(len(g), int({xm} * _mix.get(m, 0))))" in codes[0] and osvc == "12") if xm \
         else "extra_matched.parquet" not in codes[0]
     run = codes[-1]
@@ -536,19 +620,35 @@ def build_v31ac(kernel, results, scored):
         and ("if 'ntl-atlas-full-ext' in x))" in codes[0]) == bool(ax)
     infer = next(c for c in codes if c.startswith("%%writefile infer.py"))
     assert (f"np.clip({typo} * _evidence" in infer if typo else True) and ("np.clip(1.5 * _evidence" in infer) != bool(typo or sov)
-    assert sov == ("np.clip(1.35 * _evidence" in infer) == ("'--atlas_margin', '0.32'," in run) \
+    assert sov == ("np.clip(1.35 * _evidence" in infer) == ("'--atlas_margin', '0.32'," in run or am70
+                                                            or (w4 and "'--atlas_margin', '0.36'," in run)) \
         == any(c.startswith("%%writefile v34_pairwise.py") for c in codes) == ("max_alpha=0.10, diagnostics_path" in infer)
+    assert am70 == ("'--atlas_margin', '0.7'," in run)
+    assert f"'--sinkhorn_target_mix', '{tm / 100 if tm else 0.35:.2f}'," in run
     assert sib == ("max_alpha=0.08, diagnostics_path" in infer) and (sib or sov) == any(c.startswith("%%writefile sibling_style.py") for c in codes)
     assert g37 == ("tot[:, LABELS.index('gemini-3.7-flash')] += 0.3" in infer)
     pair = next((c for c in codes if c.startswith("%%writefile v34_pairwise.py")), "")
     assert v35 == ("_safe_logits + 0.12 * _gate[:, None] * _pair_log" in infer) == ("type=int,default=8); ap.add_argument('--seed'" in pair) \
         == ("np.sort(pp,axis=1)[:,-min(4,R):]" in pair) == ("'--refs-per-class', '8'," in "".join(codes))
-    assert not sov or v35 or "_safe_logits + 0.10 * _gate[:, None] * _pair_log" in infer
+    assert not sov or v35 or pv0 or "_safe_logits + 0.10 * _gate[:, None] * _pair_log" in infer
+    assert pv0 == ("_safe_logits + 0.0 * _gate[:, None] * _pair_log" in infer) and top2 == ("# fork (sambitpadhan's Top2 gate)" in infer)
+    assert vfix == ("cs=np.asarray(Cte[q].multiply(Ctr[ref])" in pair) and (not sov or vfix != ("Cte[q-start]" in pair))
+    assert z672 == ('{"name": "n14b_proven", "type": "l24", "path": B14, "adapters": [N14B, OQ1, OQ4]' in run) \
+        == (f"'--ours_svc_w', '{zsvc_w}', '--top34_w', '{'0.20' if w4 else '0.15'}'," in run) \
+        == ("# ---------------- 2b. Ours pre-fit SVC-v4n" in infer) \
+        == all(d in meta["dataset_sources"] for d in ND_DATA) and (not z672 or (sov and cx and xm == 1 and not tpu))
+    assert bs == ("# fork (exp049): our balanced SVM" in codes[0]) == ("OSVC_FINAL = str(BSVC)" in codes[0])
+    snap13 = results.get("pool13") == SNAP13_REF   # the published version attaches the public copy of pool v13 instead
+    assert snap13 == ("pool13" in results) and (pp13 or not snap13) and PP13_SECTION.count(SNAP13_SWAP[0]) == 1
+    if snap13:
+        meta = dict(meta, dataset_sources=[SNAP13_REF if d == PP13_REF else d for d in meta["dataset_sources"]])
     for m, w in tpu:   # our TPU-trained member: its line in the members cell, its kernel attached
         tag = TPU_DESC[m][1]
         assert f'{{"name": "{m}", "type": "l24"' in run and f"[adir(f'{tag}_f{{k}}') for k in range(5)] + [adir('{tag}')]" in run \
             and f'"w": {w}, ' in run.split(f'{{"name": "{m}"', 1)[1].split("\n", 1)[0], (m, w)
         assert TPU_KERNELS[m] in meta["kernel_sources"], m
+    assert not op8r or ('{"name": "q8v5"' not in run and len(tpu) == 1
+                        and '"twin": 0.35, "gauss": 0.44, "dp": True},   # fork: our TPU-trained open-pool member in q8v5\'s place' in run)
     pinned = "            if _pin is not None:   # fork: only the batches these files had on 2026-10-28" in "".join(codes)
     assert p30 == ("            if _pin is not None:   # fork: only the batches these files had on 2026-10-30" in "".join(codes)) \
         and not (p30 and pinned) and (not p30 or ".isin([1, 2, 4, 5])\n" in "".join(codes))
@@ -561,6 +661,8 @@ def build_v31ac(kernel, results, scored):
         knobs = [f"Sk {sk / 100:g}"] * (sk not in (None, 30)) + [f"Typo {typo}"] * bool(typo) \
             + ["Extra w 1"] * ew + [f"TF-IDF {tfw}"] * bool(tf) + ["Stack Pool"] * cx + ["Pool Weights"] * mw + ["Kilupy Rows"] * kx + ["Claude Gate"] * kc \
             + ["Sibling 0.08"] * sib + ["Sovereign"] * sov + ["V35 Verifier"] * v35 + ["Gemini 3.7 Fix"] * g37 \
+            + ["Verifier Fix"] * vfix + ["Top2 Gate"] * top2 + ["ATLAS m0.7"] * am70 + ["No Verifier"] * pv0 \
+            + ([f"Target Mix {tm / 100:g}"] if tm else []) + ["Balanced SVM"] * bs \
             + [f"TPU {TPU_DESC[m][2]}" for m, _ in tpu]
         title = results.get("title") or next(t for t in (f"{results['score']} | {h}" + "".join(f" + {k}" for k in knobs) for h in (
             f"Open-Pool SVC + {xm}x Matched Rows", f"Open Pool + {xm}x Matched Rows", f"{xm}x Matched Rows")) if len(t) <= 50)
@@ -578,12 +680,14 @@ def build_v31ac(kernel, results, scored):
     assert 5 <= len(title) <= 50, title
     what = ["**a faster run** (the two 8B LoRA members on both GPUs at once and Llama-3.1-8B read from local disk, "
             "which leave the predictions unchanged, and ATLAS scoring up to its deadline)",
-            f"**ATLAS mixed at {pct}% instead of 10%**" + (" on more passages" if m45 else "")]
+            f"**ATLAS mixed at {pct}% instead of 10%**" + (" on more passages" if m45 else "")
+            + (" on every passage whose top-2 margin is below 0.7 (lomnafsk's setting; Sovereign: 20% below 0.32)" if am70 else "")]
     what += [f"**lightningv08's Qwen3.8-27B readout mixed at {gpct}%** (from his [0.661 notebook]({LV08.format(K=K)}))"] if gpct else []
     what += [f"**the balancing at α = {sk / 100:.2f} instead of 0.45**"] if sk else []
     what += [f"**the complementary stack at {cpct}% instead of 15%**"] if cpct else []
     what += [f"**ATLAS-8B retrained with open-pool passages and mixed more sharply (× ATLAS^{ax})**"] if ax else []
-    what += [f"**the n-gram SVM trained on crtproduction's open pool, at weight {osvc_w}** (zbigniewkirchner's change)"] if osvc else []
+    what += [f"**the n-gram SVM trained on crtproduction's open pool, at weight {osvc_w}** (zbigniewkirchner's change"
+             + ("; the weight is ozertuu's" if w46 or w4 or w106 else "") + ")"] if osvc else []
     what += [f"**the typography evidence at ×{typo}**" + (" (judith007's change)" if typo == "1.2" else " (after judith007's ×1.2)")] if typo else []
     what += ["**the extra passages pinned to their 2026-10-28 versions**"] if pinned else []
     what += [f"**the TF-IDF, distort and SVM members' external rows drawn from the open pool by typography match, {xm}× "
@@ -602,17 +706,36 @@ def build_v31ac(kernel, results, scored):
     what += ["**mohammedafreedpasha's V35 settings for that pairwise verifier** (8 reference passages per model instead of 6, "
              "the mean of the best 4 pairs instead of 3, smaller prototype supports, `-` among the punctuation marks, weight "
              "0.12 instead of 0.10)"] if v35 else []
+    what += ["**sambitpadhan's fix of that verifier's test loop** (each test passage's own similarity, length and punctuation "
+             "features; V34.1 read those of the first 128 test passages in every later batch)"] if vfix else []
+    what += ["**sambitpadhan's Top2 gate** (the verifier acts only where its pick is among the blend's two best)"] if top2 else []
+    what += ["**that verifier fused at weight 0** (out of fold it is uninformative on unseen prompts)"] if pv0 else []
+    what += ["**ozertuu's 0.672 changes** (the Qwen3-14B part-two member averaged over Nishant Dahal's adapter and Nuri "
+             "Dudak's two, at weight 2.8, and " + ("a second 4-view n-gram SVM" if bs else "Nuri Dudak's pre-fit 4-view n-gram SVM")
+             + f" as one more member at {zsvc_w}, "
+             + ("the two SVM weights of the 0.672's scored version 1" if w46 else "the SVM weights of its version 4" if w4
+                else "beside the open-pool SVM at version 4's 10" if w106
+                else "beside the open-pool SVM at 12, as in its versions 2-3") + ")"] if z672 else []
+    what += ["**that second SVM fitted in the notebook by us: balanced, on open-pool passages only** (public data in the "
+             "place of the private SVM behind the 0.672)"] if bs else []
     what += ["**the open pool read at its Kaggle version 13** (190,588 passages, the file the 0.667 runs read, from an "
              "unmodified copy)"] if pp13 else []
     what += ["**+0.3 on gemini-3.7-flash's log-score after the balancing**"] if g37 else []
     what += ["**the open pool read at its current Kaggle version 14** (211,369 passages, what a new copy attaches)"] if v14 else []
+    what += [f"**the open pool read at its current Kaggle version 15** ({V15_ROWS} passages, what a new copy attaches)"] if v15 else []
+    what += [f"**the balancing's target class shares {tm}% of the way from the blend's own shares to the official rows' instead "
+             f"of 35%** (aboodps's change: {'their' if tm == 50 else 'one step past their'} [0.669 notebook]({AB_0669.format(K=K)}))"] if tm else []
     what += [f"**a sixth LoRA24 member that we trained on Kaggle's free TPU v5e-8** ({TPU_DESC[m][0]}: crtproduction's open pool, "
-             f"then the official rows; weight {w:g})" for m, w in tpu]
-    a_sec = A20_SECTION.replace("In this recipe", "In the 0.651 recipe").format(
+             f"then the official rows; weight {w:g})" for m, w in tpu] if not op8r else \
+        ["**the recipe's Qwen3-8B-Base member retrained by us on Kaggle's free TPU v5e-8** (crtproduction's open pool, then the "
+         "official rows; q8v5's line, weight, twin and gaussian head unchanged)"]
+    a_sec = (A20_SECTION.replace("In this recipe", "In the 0.651 recipe").format(
+        pct=pct, reach=f"{pct / (100 - pct):.2f}", flag=f"{pct / 100:.2f}", inside=AM70_INSIDE, cost=M45_COST)
+        + AM70_NOTE.format(lm=LM_M70.format(K=K)) if am70 else A20_SECTION.replace("In this recipe", "In the 0.651 recipe").format(
         pct=pct, reach=f"{pct / (100 - pct):.2f}", flag=f"{pct / 100:.2f}",
         inside=("inside the passages it now scores (margin below 0.45)" if m45 and pct / (100 - pct) <= 0.45
                 else A_INSIDE[pct / (100 - pct) > (0.45 if m45 else 0.3)].replace("0.3 margin", "0.45 margin" if m45 else "0.3 margin")),
-        cost="" if m45 else A_COST) + (M45_NOTE.format(pct=pct) if m45 else "") + results.get("a_note", "")
+        cost="" if m45 else A_COST) + (M45_NOTE.format(pct=pct) if m45 else "")) + results.get("a_note", "")
     g_sec = GSQ_SECTION.format(gpct=gpct, gflag=f"{gpct / 100:.2f}", lv08=LV08.format(K=K)) if gpct else ""
     k_note = results.get("k_note", "")
     k_sec = (SK_SECTION.format(alpha=f"{sk / 100:.2f}", direction="softer" if sk < 45 else "stronger",
@@ -625,6 +748,7 @@ def build_v31ac(kernel, results, scored):
     if xm:   # release v11 of the pool (Kaggle version 13) holds 190,588 passages, release v12 (version 14) 211,369
         o_sec = o_sec.replace("~198k public real-model passages (CC BY-SA 4.0)",
                               "211,369 public real-model passages (release v12, CC BY-SA 4.0)" if v14 else
+                              f"{V15_ROWS} public real-model passages (release v13, CC BY-SA 4.0)" if v15 else
                               "190,588 public real-model passages (release v11, CC BY-SA 4.0)")
     x_sec = "\n".join(x for x in (AX_SECTION.replace("{k}", str(ax)).format(**fmt) if ax else "", o_sec,
                                    XM_SECTION.format(xm=xm, n_rows=XM_ROWS[xm], x_note=results.get("x_note", ""), **fmt) if xm else "",
@@ -639,11 +763,50 @@ def build_v31ac(kernel, results, scored):
                                    SOV_SECTION.format(v_note=results.get("v_note", ""), sov=SOV_NB.format(K=K),
                                                       ac6=AC_0666.format(K=K), ab=AB_DS.format(K=K)) if sov else "",
                                    V35_SECTION.format(af=AF_0667.format(K=K), v35_note=results.get("v35_note", "")) if v35 else "",
-                                   PP13_SECTION.format(pool=OPEN_POOL_DS.format(K=K), zk7=ZK_0667.format(K=K), mh=MH_0667.format(K=K),
+                                   VFIX_SECTION.format(sp=SP_TOP2.format(K=K), vfix_note=results.get("vfix_note", "")) if vfix else "",
+                                   TOP2_SECTION.format(sp=SP_TOP2.format(K=K), top2_note=results.get("top2_note", "")) if top2 else "",
+                                   PV0_SECTION.format(pv_note=results.get("pv_note", "")) if pv0 else "",
+                                   Z672_SECTION.format(oz=OZ_0672.format(K=K), ours=OUR_0668.format(K=K),
+                                                       q1=f"{K}/datasets/{ND_DATA[0]}", q4=f"{K}/datasets/{ND_DATA[1]}",
+                                                       svc=f"{K}/datasets/{ND_DATA[2]}", z_note=results.get("z_note", ""),
+                                                       svc_choice=("This version takes version 1's weights (open-pool SVM "
+                                                       "**4.0**, second SVM **6.0**)" if w46 else "This version keeps the "
+                                                       "open-pool SVM at version 4's **10** and gives the second SVM version "
+                                                       "1's **6.0**") + ", and in the second SVM's place it fits its own "
+                                                       "balanced SVM from public data (next section)." if bs else
+                                                       "This version keeps the open-pool SVM at version 4's **10** and gives "
+                                                       "Nuri Dudak's public SVM version 1's **6.0**." if w106 else
+                                                       "This version takes version 1's weights (open-pool SVM "
+                                                       "**4.0**, pre-fit SVM **6.0**) with Nuri Dudak's public SVM as the "
+                                                       "pre-fit one." if w46 else
+                                                       "This version takes version 4's (open-pool SVM **10**, pre-fit SVM "
+                                                       "**1.2**" + ("; ATLAS: the wider gate below)." if am70 else
+                                                                     ", ATLAS 22% below 0.36).")
+                                                       if w4 else "This version takes versions 2-3's (open-pool SVM **12**, "
+                                                       "pre-fit SVM **0.85**).",
+                                                       pool_line="this version reads version 13 (190,588 passages) from our "
+                                                       "unmodified copy (see below)." if pp13 else "this version reads version "
+                                                       f"15 ({V15_ROWS} passages: version 14 plus 1,254 gap-filling ones), what "
+                                                       "a new copy attaches.")
+                                   if z672 else "",
+                                   BS_SECTION.format(w=zsvc_w, replica=BS_REPLICA[f"{zsvc_w}/{osvc_w}"],
+                                                     bs_note=results.get("bs_note", "")) if bs else "",
+                                   (PP13_SECTION.replace(*SNAP13_SWAP) if snap13 else PP13_SECTION).format(
+                                                       pool=OPEN_POOL_DS.format(K=K), zk7=ZK_0667.format(K=K), mh=MH_0667.format(K=K),
                                                        ac7=AC_0667.format(K=K), pin=f"{K}/datasets/{PP13_REF}",
+                                                       snap=f"{K}/datasets/{SNAP13_REF}",
                                                        pp_note=results.get("pp_note", "")) if pp13 else "",
                                    G37_SECTION.format(g_note=results.get("g_note", "")) if g37 else "",
-                                   *(TPU_SECTION.format(desc=TPU_DESC[m][0], keep=27 if m == "q14o" else 24, w=f"{w:g}",
+                                   *(TPU_SECTION.format(desc=TPU_DESC[m][0], keep=27 if m == "q14o" else 24,
+                                                        head="The Qwen3-8B member, retrained on Kaggle's free TPU" if op8r
+                                                        else f"A new member: {TPU_DESC[m][0]}, trained on Kaggle's free TPU",
+                                                        role="replaces the adapters of one of them, the Qwen3-8B-Base member "
+                                                        "(`q8v5`), with ones" if op8r else "adds a sixth one",
+                                                        reads="in q8v5's place, exactly as it read q8v5: five fold adapters and "
+                                                        "the full one, averaged, at q8v5's weight **2**, with its prompt-centred twin "
+                                                        "(0.35) and its gaussian group head (0.44); nothing else in the notebook "
+                                                        "changes" if op8r else "like the 8B members: five fold adapters and the "
+                                                        f"full one, averaged, at weight **{w:g}**, with its prompt-centred twin",
                                                         kernel=TPU_KERNELS[m].split("/")[1], tk=f"{K}/code/{TPU_KERNELS[m]}",
                                                         gp=results.get("gp_url", f"{K}/competitions/name-that-llm/discussion"),
                                                         pool=OPEN_POOL_DS.format(K=K), pool_rows=results.get("tpu_pool_rows", "190,588"),
@@ -695,7 +858,8 @@ def build_v31ac(kernel, results, scored):
     if osvc:
         swaps += [("the 4-view n-gram SVM (1.5);", f"the 4-view n-gram SVM ({osvc_w}, trained with crtproduction's open pool);"),
                   ("* **PeterDreamHan** —",
-                   f"* **zbigniewkirchner** — the open-pool SVM and its weight ([0.664 notebook]({ZK_0664.format(K=K)})).\n* **PeterDreamHan** —")]
+                   f"* **zbigniewkirchner** — the open-pool SVM" + ("" if w46 or w4 or w106 else " and its weight")
+                   + f" ([0.664 notebook]({ZK_0664.format(K=K)})).\n* **PeterDreamHan** —")]
     if xm:
         swaps += [("TF-IDF (0.25) and text-distortion (0.10) members.",
                    f"TF-IDF ({tfw or '0.25'}) and text-distortion (0.10) members; these three learn from the matched "
@@ -726,8 +890,11 @@ def build_v31ac(kernel, results, scored):
         swaps += [("6. **Typography step** — V31's, which writes the submission.",
                    "6. **Typography step** — V31's" + (", its evidence ×1.35 (Sovereign)" if sov else "") + ".\n"
                    f"7. **Sibling-style residual** — Roman Tamrazov's V40A at max_alpha {'0.10' if sov else '0.08'}"
-                   + ((", then mercurydust's V34.1 pairwise verifier with V35's settings at 0.12" if v35 else
-                       ", then mercurydust's V34.1 pairwise verifier at 0.10") + " on passages whose top-2 margin is below 0.35" if sov else "")
+                   + (", then mercurydust's V34.1 pairwise verifier" + (" with sambitpadhan's index fix" if vfix else "")
+                      + (", which runs but is fused at weight 0 (Sovereign: 0.10)" if pv0 else
+                         (" with V35's settings at 0.12" if v35 else " at 0.10")
+                         + " on passages whose top-2 margin is below 0.35"
+                         + (", where its pick is among the blend's top two" if top2 else "")) if sov else "")
                    + "; it writes the submission."),
                   ("* **PeterDreamHan** —",
                    f"* **synthreaper (Aditya Goyal)** — [Sovereign Gold Apex]({SOV_NB.format(K=K)}), "
@@ -741,7 +908,16 @@ def build_v31ac(kernel, results, scored):
                    + "* **PeterDreamHan** —")]
     if sov:
         swaps += [("mixed at {pct}% on passages whose top-2 margin is below 0.3.".format(pct=pct),
-                   "mixed at {pct}% on passages whose top-2 margin is below 0.32 (Sovereign's margin).".format(pct=pct))]
+                   "mixed at 30% on passages whose top-2 margin is below 0.7 (lomnafsk's setting; Sovereign: 20% below 0.32)."
+                   if am70 else "mixed at {pct}% on passages whose top-2 margin is below 0.32 (Sovereign's margin).".format(pct=pct))]
+    if vfix or top2:
+        swaps += [("* **PeterDreamHan** —",
+                   "* **sambitpadhan** — " + " and ".join(["the fix of V34.1's test-loop indices"] * vfix + ["the Top2 gate"] * top2)
+                   + f" ([NTL Four Top2 Gate]({SP_TOP2.format(K=K)}), public 0.667).\n* **PeterDreamHan** —")]
+    if am70:
+        swaps += [("* **PeterDreamHan** —",
+                   f"* **lomnafsk** — ATLAS at 30% below margin 0.7 ([NTL triple margin0.7]({LM_M70.format(K=K)}), public 0.667).\n"
+                   "* **PeterDreamHan** —")]
     if v35:
         swaps += [("* **PeterDreamHan** —",
                    f"* **mohammedafreedpasha** — the V35 settings of the pairwise verifier ([0.667 notebook]({AF_0667.format(K=K)})).\n"
@@ -749,17 +925,53 @@ def build_v31ac(kernel, results, scored):
     if pp13:
         assert xm and osvc
         crt = f"* **crtproduction** — the [Name That LLM Open Pool]({OPEN_POOL_DS.format(K=K)}) (CC BY-SA 4.0) and its typography match weights."
-        swaps += [(crt, crt[:-1] + f"; this notebook reads its version 13 from our unmodified copy, [ntl-open-pool-v13-pin]({K}/datasets/{PP13_REF}).")]
+        swaps += [(crt, crt[:-1] + (f"; this notebook reads its version 13 from melvindenishl's public, byte-identical "
+                                    f"[snapshot]({K}/datasets/{SNAP13_REF})." if snap13 else
+                                    f"; this notebook reads its version 13 from our unmodified copy, [ntl-open-pool-v13-pin]({K}/datasets/{PP13_REF})."))]
+    if op8r:
+        swaps += [("Qwen3-8B-Base (2) and Llama-3.1-8B (1) LoRA24 members",
+                   "Qwen3-8B-Base (2; our TPU-trained adapters, see above) and Llama-3.1-8B (1) LoRA24 members")]
     if tpu:
         swaps += [("Nishant Dahal's Qwen3-14B (2.5) and Qwen2.5-14B (1) part-two checkpoints;",
-                   "Nishant Dahal's Qwen3-14B (2.5) and Qwen2.5-14B (1) part-two checkpoints; "
-                   + "; ".join(f"our TPU-trained {TPU_DESC[m][0]} LoRA24 member ({w:g}, see above)" for m, w in tpu) + ";"),
+                   "Nishant Dahal's Qwen3-14B (2.5) and Qwen2.5-14B (1) part-two checkpoints;"
+                   + "".join(f" our TPU-trained {TPU_DESC[m][0]} LoRA24 member ({w:g}, see above);" for m, w in tpu if not op8r)),
                   ("* **PeterDreamHan** —",
                    f"* **GoPain** — the [TPU v5e-8 measurements]({results.get('gp_url', K + '/competitions/name-that-llm/discussion')}) "
                    "our TPU trainer follows (torch_xla SPMD, bf16, fixed shapes, XLA checkpointing).\n* **PeterDreamHan** —")]
+    if z672:
+        swaps += [("· builds on mercurydust's 0.660, which builds on Roman Tamrazov's 0.654 and the 0.651 recipe ·",
+                   "· builds on ozertuu's 0.672 and our 0.668, which build on mercurydust's 0.660, Roman Tamrazov's 0.654 and "
+                   "the 0.651 recipe ·"),
+                  ("\n\nThis is mercurydust's [",
+                   f"\n\nThis version starts from ozertuu's [0.672 | Dual-SVC Blend + Residual Refinement]({OZ_0672.format(K=K)}) "
+                   f"({results.get('oz_state', 'scored **0.672**; ozertuu made it private on 2026-11-05')}), which is our [0.668 notebook]({OUR_0668.format(K=K)}) plus Nuri Dudak's two Qwen3-14B "
+                   "adapters and a pre-fit SVM (section *ozertuu's 0.672* below). The code goes back further:"
+                   "\n\nThis is mercurydust's ["),
+                  ("Nishant Dahal's Qwen3-14B (2.5) and Qwen2.5-14B (1) part-two checkpoints;",
+                   "Nishant Dahal's Qwen3-14B (2.8, averaged with Nuri Dudak's two Qwen3-14B-Base adapters) and Qwen2.5-14B (1) "
+                   "part-two checkpoints; " + ("our balanced 4-view n-gram SVM, fitted in the notebook" if bs else
+                                               "Nuri Dudak's pre-fit 4-view n-gram SVM") + f" ({zsvc_w});"),
+                  ("* **PeterDreamHan** —",
+                   f"* **ozertuu** — the [0.672 notebook]({OZ_0672.format(K=K)}) that added Nuri Dudak's adapters and a pre-fit SVM "
+                   "to our 0.668" + (", and the two SVM weights of its scored version 1" if w46 else
+                                     ", and the weights of its version 4" if w4 else
+                                     ", and the second SVM's weight in its scored version 1" if w106 else "")
+                   + ("; the description of his private SVM that our balanced one follows" if bs else "") + ".\n"
+                   f"* **Nuri Dudak** — the Qwen3-14B-Base LoRA adapters [ntl-q14-lora]({K}/datasets/{ND_DATA[0]}) and "
+                   f"[ntl-q14-lora-v4]({K}/datasets/{ND_DATA[1]}) (licence \"other\"; the datasets state no terms) and the pre-fit "
+                   f"SVM [ntl-svc-prefit-pool-v4n]({K}/datasets/{ND_DATA[2]}) (CC BY-SA 4.0)"
+                   + (", whose four views our balanced SVM copies (the notebook still attaches it, then fits its own)" if bs else "")
+                   + ".\n* **PeterDreamHan** —")]
     if g37:
         swaps += [("5. **Balancing** — V31's soft Sinkhorn (above).",
                    "5. **Balancing** — V31's soft Sinkhorn (above), then +0.3 on gemini-3.7-flash's log-score (see above).")]
+    if tm:   # 2026-11-05: aboodps's 0.669 moved the balancing's target shares to 50% (from 35%)
+        swaps += [("**Balancing** — V31's soft Sinkhorn (above)",
+                   f"**Balancing** — V31's soft Sinkhorn (above), its target class shares {tm}% of the way from the blend's "
+                   "own to the official rows' (35% in V31)"),
+                  ("* **PeterDreamHan** —",
+                   f"* **aboodps** — the Sinkhorn target mix 0.50 ([NTL 672 Sinkhorn 050]({AB_0669.format(K=K)}), public 0.669)."
+                   "\n* **PeterDreamHan** —")]
     if results.get("tldr"):   # a short summary box right under the header line
         swaps += [("\n\nThis is mercurydust's [", "\n\n" + results["tldr"] + "\n\nThis is mercurydust's [")]
     for a, b in swaps:
@@ -770,7 +982,8 @@ def build_v31ac(kernel, results, scored):
              + ("; the block after the pool search swaps the SVM's pool for crtproduction's open pool" if osvc else "")
              + (" and draws the n-gram members' external rows from it by typography match" if xm else "")
              + (", then appends kilupy's 18-model corpus to those rows" if kx else "")
-             + ("; the open pool is our unmodified copy of its Kaggle version 13" if pp13 else ""),
+             + ("; the open pool is our unmodified copy of its Kaggle version 13" if pp13 else "")
+             + ("; the last block finds Nuri Dudak's two Qwen3-14B adapters and his pre-fit SVM (ozertuu's 0.672)" if z672 else ""),
              "infer_extra": " Our changes: in `l24_predict`, members marked `\"dp\"` (the 8B ones) load a copy on each GPU "
                             "and alternate batches between them, and every member averages its hidden states on the GPU; "
                             "ATLAS no longer stops on a projected overrun"
@@ -778,10 +991,15 @@ def build_v31ac(kernel, results, scored):
                             + ("; after ATLAS's linear mix, its passages are multiplied by ATLAS^k (`--atlas_pow`)" if ax else "")
                             + (f"; the typography evidence is scaled by {typo} instead of 1.5" if typo else "")
                             + ("; after the balancing, +0.3 on gemini-3.7-flash's log-score" if g37 else "")
-                            + "".join(f"; the members cell lists our TPU-trained {TPU_DESC[m][0]} member (`{m}`, weight {w:g})" for m, w in tpu)
+                            + "".join(f"; the members cell lists our TPU-trained {TPU_DESC[m][0]} member (`{m}`, weight {w:g})" for m, w in tpu if not op8r)
+                            + ("; in the members cell, q8v5's line reads our TPU-trained Qwen3-8B-Base adapters (`op8`)" if op8r else "")
                             + ("; after the typography step, V40A's sibling-style residual (max_alpha 0.08)" if sib else "")
                             + ("; the typography evidence at ×1.35, and after the typography step Sovereign's V40A residual and V34.1 "
-                               "pairwise fusion" if sov else "") + (" at 0.12 (V35; Sovereign: 0.10)" if v35 else "") + ".",
+                               "pairwise fusion" if sov else "") + (" at 0.12 (V35; Sovereign: 0.10)" if v35 else "")
+                            + (" at weight 0 (Sovereign: 0.10)" if pv0 else "")
+                            + (", only where the verifier's pick is among the blend's top two (sambitpadhan's gate)" if top2 else "")
+                            + ("; after the distortion member, ozertuu's block mixes in Nuri Dudak's pre-fit SVM (`--ours_svc_w`; "
+                               "its LightGBM part stops on a missing file, see above)" if z672 else "") + ".",
              "run_text": "The 0.651 members and weights with V31's run flags (`--tfidf_w 0.25 --distort_w 0.10 "
                          "--sinkhorn 0.45 --sinkhorn_target_mix 0.35 --post 0`). On the 3 visible rows the commit run "
                          "writes a placeholder; Kaggle's rerun on the ~4,000 hidden rows runs every cell. The run command "
@@ -793,7 +1011,12 @@ def build_v31ac(kernel, results, scored):
                          + (f", `'--svc_w', '{osvc_w}'` (V31: 1.5)" if osvc else "")
                          + (", `'--extra_w', '1.0'` (V31: 0.5)" if ew else "") + (f", `'--tfidf_w', '{tfw}'` (V31: 0.25)" if tf else "")
                          + (f", `'--atlas_pow', '{ax}'` (new)" if ax else "")
-                         + (", `'--atlas_margin', '0.32'` (V31: 0.3)" if sov else "") + "."}
+                         + ((", `'--atlas_margin', '0.7'` (V31: 0.3; Sovereign: 0.32)" if am70 else
+                             ", `'--atlas_margin', '0.36'` (V31: 0.3; Sovereign: 0.32; ozertuu's version 4)" if w4 else
+                             ", `'--atlas_margin', '0.32'` (V31: 0.3)") if sov else "")
+                         + (f", `'--ours_svc_w', '{zsvc_w}'` and `'--top34_w', '{'0.20' if w4 else '0.15'}'` (ozertuu's; the "
+                            "LightGBM does not run), and the n14b line reads three adapters at weight 2.8 (V31: one at 2.5)"
+                            if z672 else "") + "."}
     table = V31AC_SECTIONS if gpct else dict(V31AC_SECTIONS, **{k: V31_SECTIONS[k] for k in ("# complementary public stack in its own process",)})
     if v35:
         table = dict(table, **{
@@ -803,6 +1026,12 @@ def build_v31ac(kernel, results, scored):
             "supports 6 / 5, `-` among the punctuation marks.",
             "# V34.1: run the lightweight A/B Pairwise verifier": "Run the pairwise verifier\nOn the test passages, before the "
             "main pipeline, with `--refs-per-class 8` (about 35 s on the 3 visible rows)."})
+    if vfix:
+        table = dict(table, **{
+            "%%writefile v34_pairwise.py": "Pairwise verifier (`v34_pairwise.py`, mercurydust's V34.1 as in Sovereign Gold Apex, "
+            "with sambitpadhan's index fix)\nA same-model pair classifier on the official rows with the ChatGPT A/B annotations; "
+            "writes per-passage scores for `infer.py`. Its test loop reads each test passage's own TF-IDF rows and text "
+            "(`Cte[q]`, `Wte[q]`, `test_texts[z]`; V34.1: `[q-start]`, one of the first 128 test passages)."})
     if p30 or cx:   # the stack's extra-passage loader is where both changes live
         k = "%%writefile comp_stack.py"
         table = dict(table, **{k: table[k] + " Its extra-passage loader"

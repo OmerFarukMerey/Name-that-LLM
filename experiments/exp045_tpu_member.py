@@ -81,21 +81,21 @@ def main(specs):
         print(f"{k:6s} alone {score(mem[k]):.4f}  argmax agreement " + " ".join(f"{j} {v:.2f}" for j, v in agree.items()))
     ref = run({})
     print(f"replica (K + stylegram stand-in, Sinkhorn 0.30): {score(ref):.4f}")
+
+    def cell(S):
+        g = paired_bootstrap(y, S.argmax(1), ref.argmax(1), prompts)
+        folds = [balanced_accuracy(train.model[nlm["folds"] == f], labels[S.argmax(1)][nlm["folds"] == f])
+                 - balanced_accuracy(train.model[nlm["folds"] == f], labels[ref.argmax(1)][nlm["folds"] == f]) for f in range(5)]
+        return f"{score(S):.4f} ({g[0]:+.4f} [{g[1]:+.4f},{g[2]:+.4f}], {sum(x > 0 for x in folds)}/5 folds up)"
+
     for name in [x for n in new for x in (n, n + "_s1")]:
-        cells = []
-        for w in (0.5, 1.0, 1.5, 2.0, 3.0, 4.0):
-            S = run({name: w})
-            g = paired_bootstrap(y, S.argmax(1), ref.argmax(1), prompts)
-            folds = [balanced_accuracy(train.model[nlm["folds"] == f], labels[S.argmax(1)][nlm["folds"] == f])
-                     - balanced_accuracy(train.model[nlm["folds"] == f], labels[ref.argmax(1)][nlm["folds"] == f]) for f in range(5)]
-            cells.append(f"w{w}: {score(S):.4f} ({g[0]:+.4f} [{g[1]:+.4f},{g[2]:+.4f}], {sum(x > 0 for x in folds)}/5 folds up)")
-        print(f"+ {name}: " + " | ".join(cells), flush=True)
+        print(f"+ {name}: " + " | ".join(f"w{w}: {cell(run({name: w}))}" for w in (0.5, 1.0, 1.5, 2.0, 3.0, 4.0)), flush=True)
     for n in new:
-        if n in PLACE:
+        if n in PLACE:   # the twin cut to 0 (dropped from the notebook) or halved
             twin = PLACE[n]
-            for w in (E.CORE[twin], 1.5 * E.CORE[twin]):
-                S = run({n: w, twin: 0.0})
-                print(f"{n} at {w} in {twin}'s place: {score(S):.4f} ({paired_bootstrap(y, S.argmax(1), ref.argmax(1), prompts)[0]:+.4f})")
+            for tw in (0.0, 0.5 * E.CORE[twin]):
+                for w in (1.0, 1.5, 2.0, 2.5, 3.0):
+                    print(f"{n} at {w}, {twin} at {tw}: {cell(run({n: w, twin: tw}))}", flush=True)
     if len(new) > 1:
         for w in (0.5, 1.0, 1.5, 2.0):
             S = run({n: w for n in new})

@@ -1,0 +1,62 @@
+{
+ "id": 142779456,
+ "ref": "ozertuu/0-672-dual-svc-calibrated-blend-proven-3-lora",
+ "title": "0-672-dual-svc-calibrated-blend-proven-3-lora",
+ "author": "Ertu\u011frul \u00d6zer",
+ "slug": "0-672-dual-svc-calibrated-blend-proven-3-lora",
+ "lastRunTime": "2026-11-02T12:16:08.966Z",
+ "language": "python",
+ "kernelType": "notebook",
+ "isPrivate": false,
+ "enableGpu": true,
+ "enableInternet": false,
+ "datasetDataSources": [
+  "dhruvtibarewal/nlm-l24-adapters",
+  "crtproduction/name-that-llm-open-pool",
+  "seyitkaangunes/ntl-extra-api-passages",
+  "abdullah1afify/ntl-generations",
+  "dophuchung/ntl-proxy-generations",
+  "zbigniewkirchner/ntl-qwen3-8b-lora-claude-head",
+  "dhruvtibarewal/nlm-matched-clean",
+  "dhruvtibarewal/nlm-offline-wheels",
+  "josephadamski91/ntl-atlas-qwen3-8b-v1",
+  "lucasboesen/ntl-free-proxy-generations",
+  "nuridudak/ntl-q14-lora",
+  "nuridudak/ntl-q14-lora-v4",
+  "nuridudak/ntl-svc-prefit-pool-v4n",
+  "nishantdahal/ntl-two-stage-lora",
+  "nishantdahal/ntl-handwriting-blend",
+  "dhruvtibarewal/nlm-l24-adapters-v5",
+  "mercurydust/ntllm-chatgpt-a-b",
+  "prvsiyan/prvsiyans-extended-name-that-llm-dataset",
+  "pjmathematician/ultrabert-380m-ntl"
+ ],
+ "kernelDataSources": [
+  "lucasboesen/name-that-llm-glm4-9b-trunc25",
+  "lucasboesen/name-that-llm-extract-encoders2",
+  "lucasboesen/name-that-llm-electra-large-weights",
+  "lucasboesen/name-that-llm-desklib-weights",
+  "lucasboesen/name-that-llm-train-lora24-s7",
+  "lucasboesen/name-that-llm-train-tokattn",
+  "lucasboesen/name-that-llm-train-tokattn2",
+  "vnton37nguyn/ntl-train-lora-qwen25-instyle"
+ ],
+ "competitionDataSources": [
+  "name-that-llm"
+ ],
+ "totalVotes": 35,
+ "modelDataSources": [
+  "alexchilton/llama-3-1-8b-base/Transformers/default/1",
+  "qwen-lm/qwen-3/Transformers/14b/1",
+  "qwen-lm/qwen-3/Transformers/14b-base/1",
+  "qwen-lm/qwen-3/Transformers/4b-base/1",
+  "qwen-lm/qwen-3/Transformers/8b-base/1",
+  "qwen-lm/qwen-3/Transformers/8b/1",
+  "qwen-lm/qwen2.5/Transformers/7b/1",
+  "qwen-lm/qwen2.5/Transformers/14b/1"
+ ],
+ "enableTpu": false,
+ "currentVersionNumber": 4,
+ "dockerImage": "gcr.io/kaggle-private-byod/python@sha256:de153e6d303881930c51286216393d56f56b26458d0661350305a1e8144eea01",
+ "machineShape": "NvidiaTeslaT4"
+}

@@ -1406,6 +1406,109 @@ del _opb, _dr, _Xb, _svb, _vecb
 _OURS = "print('Ours 0.654/0.665 proven:', OQ1, OQ4, OSVC_FINAL)\n"
 BSVC = [(_OURS, _OURS + BSVC_CODE)]
 W106 = [(W4[0][0], "'--svc_w', '10.0', '--ours_svc', str(OSVC_FINAL), '--ours_svc_w', '6.0', '--top34_w', '0.15',")]
+# 2026-11-06: whitegg's public 0.669 (ntl-fuse33: our 0.668 + olegzholobov's response corpus): the corpus's 40-250-word
+# view appended to the matched external rows (per-label cap = the 1x matched count, 24,443 rows in all), their code verbatim
+RC_DATA = "olegzholobov/name-that-llm-response-corpus"
+_RC_AT = "EXTRA = '/kaggle/working/extra_matched.parquet'; _ex[['text', 'model']].to_parquet(EXTRA)\n"
+RC_CODE = r"""# fuse33 (fork): append the curated short view of olegzholobov/name-that-llm-response-corpus to the external rows.
+# Same protocol as the 1x matched rows: official 18 labels only, NFKC + whitespace normalisation, exact de-duplication
+# against train.csv and the rows just written, per-label cap = that label's 1x matched-clean count (so the label mix
+# stays proportional) and a 24,443-row cap on the whole addition (= 1x nlm_matched_clean). Modelling code is untouched.
+import re as _re, unicodedata as _ud
+def _ntl_norm(s):
+    return _re.sub(r'\s+', ' ', _ud.normalize('NFKC', str(s or ''))).strip()
+_LAB18 = ['claude-fable-5','claude-opus-4-6','claude-opus-4-8','claude-opus-5','claude-sonnet-5',
+          'gemini-3.1-pro-preview','gemini-3.6-flash','gemini-3.7-flash','gemini-3.8-flash','glm-5.3','glm-5.3-flash',
+          'gpt-5.5','gpt-5.6-luna','gpt-5.6-sol','gpt-5.6-terra','gpt-6-astra','kimi-k3','qwen3.8-max']
+_cp = sorted(glob.glob('/kaggle/input/**/external_short_wide.parquet', recursive=True))
+if not _cp:
+    print('fuse33 response corpus: external_short_wide.parquet not found; keeping the base external rows only')
+else:
+    _cw = _pd.read_parquet(_cp[0])
+    _mcols = [c for c in _cw.columns if c not in ('id', 'prompt', 'prompt_id')]
+    assert set(_mcols) == set(_LAB18), sorted(set(_mcols) ^ set(_LAB18))
+    _cl = _cw.melt(id_vars=['id'], value_vars=_mcols, var_name='model', value_name='text')
+    _cl = _cl[_cl.model.isin(_LAB18) & _cl.text.notna()].copy()
+    _cl['_k'] = _cl.text.map(_ntl_norm)
+    _cl = _cl[_cl._k.str.len() > 0].drop_duplicates('_k', keep='first')
+    _seen = {_ntl_norm(t) for t in _pd.read_csv(DATA + '/train.csv', usecols=['text']).text.values}
+    _seen |= {_ntl_norm(t) for t in _ex.text.values}
+    _cl = _cl[~_cl._k.isin(_seen)]
+    _new = []; _left = 24443
+    for _m in _LAB18:
+        _c = _cl[_cl.model == _m]; _k = min(len(_c), int(_mix.get(_m, 0)), _left)
+        if _k <= 0:
+            continue
+        if _k < len(_c):
+            _c = _c.iloc[_np.sort(_np.random.RandomState(0).choice(len(_c), size=_k, replace=False))]
+        _new.append(_c[['text', 'model']]); _left -= _k
+    _new = _pd.concat(_new, ignore_index=True) if _new else _pd.DataFrame(columns=['text', 'model'])
+    _ex = _pd.concat([_ex[['text', 'model']], _new], ignore_index=True)
+    _ex[['text', 'model']].to_parquet(EXTRA, index=False)
+    print('fuse33 response corpus: rows', len(_cw), '-> labelled cells kept', len(_cl), '-> injected', len(_new),
+          '; extra_matched rows', len(_ex), '(base 24443)')
+_vcheck = _pd.read_parquet(EXTRA)
+print('fuse33 extra_matched.parquet rows', len(_vcheck), 'labels', _vcheck.model.nunique())
+del _vcheck
+"""
+RC = [(_RC_AT, _RC_AT + RC_CODE)]
+# 2026-11-06 22:50 UTC: evgendvorkin's NTL-20 (his version 18, unscored): a fine-tuned DeBERTa-v3 classifier from nuridudak's
+# public ntl-two-stage-encoders (desklib folder, the 18 official labels) as one more member at his weight 2.2; his branch,
+# wrapped so that any failure skips the member instead of the run
+DC_DATA = "nuridudak/ntl-two-stage-encoders"
+DC_SETUP = """# fork (evgendvorkin's NTL-20): a fine-tuned DeBERTa-v3 classifier (nuridudak's public ntl-two-stage-encoders, desklib folder)
+_deb_cls = sorted(glob.glob('/kaggle/input/**/ntl-two-stage-encoders/desklib/config.json', recursive=True))
+DEB_CLS_DIR = os.path.dirname(_deb_cls[0]) if _deb_cls else None
+print('DeBERTa-v3 classifier:', DEB_CLS_DIR)
+"""
+DC_BRANCH = """    if spec.get('type') == 'hf_cls':   # fork (evgendvorkin's NTL-20): fine-tuned sequence classifier (DeBERTa-v3), its own 18-label head, fp32
+        try:   # fork: a failure skips this member, the run goes on
+            log('hf_cls', spec['name']); from transformers import AutoModelForSequenceClassification
+            _ctok = AutoTokenizer.from_pretrained(spec['path'])
+            _cls = AutoModelForSequenceClassification.from_pretrained(spec['path'], dtype=torch.float32).to('cuda:0').eval()
+            _lab = [_cls.config.id2label[i] for i in range(_cls.config.num_labels)]; _cperm = [_lab.index(l) for l in LABELS]
+            def _cls_logits(texts_):
+                _ids = _ctok(list(texts_), truncation=True, max_length=spec.get('max_len', 384))['input_ids']
+                _ord = np.argsort([len(x) for x in _ids], kind='stable'); Z_ = np.zeros((len(_ids), len(_lab)), np.float32); _bs = spec.get('bs', 16)
+                with torch.inference_mode():
+                    for _s in range(0, len(_ord), _bs):
+                        _idx = _ord[_s:_s + _bs]; _bt = _ctok.pad({'input_ids': [_ids[i] for i in _idx]}, return_tensors='pt').to('cuda:0')
+                        Z_[_idx] = _cls(**_bt).logits.float().cpu().numpy()
+                return Z_[:, _cperm]
+            if len(test) < 50:
+                _acc = float((_cls_logits(train.text.values[:40]).argmax(1) == y[:40]).mean())
+                log(f'  {spec["name"]} in-sample check acc {_acc:.2f}'); assert _acc > 0.3, spec['name']
+            _zz = _cls_logits(test.text.values)
+            LP[spec['name']] = (_zz - _zz.max(1, keepdims=True) - np.log(np.exp(_zz - _zz.max(1, keepdims=True)).sum(1, keepdims=True))) * spec.get('w', 1.0)
+            del _cls; log(spec['name'], 'done', gpu_mem())
+        except Exception as _e:
+            log(f"hf_cls {spec['name']} skipped: {_e!r}"[:300])
+        gc.collect(); torch.cuda.empty_cache(); continue
+"""
+_DC_ENC = "    if spec.get('type') == 'enc':"
+_DC_RUN = '  {"name": "deb", "type": "enc", "ckpt": DEB, "w": 1.0},\n]\n'
+DC = [(_OURS, _OURS + DC_SETUP), (_DC_ENC, DC_BRANCH + _DC_ENC),
+      (_DC_RUN, _DC_RUN + 'if DEB_CLS_DIR:   # fork (evgendvorkin\'s NTL-20): the DeBERTa-v3 classifier at his weight 2.2\n'
+       '    MODELS.append({"name": "deb_v3_cls", "type": "hf_cls", "path": DEB_CLS_DIR, "w": 2.2, "bs": 16, "max_len": 384})\n')]
+# 2026-11-07 08:40 UTC: areebbb's public 0.673 (0-673-i-m-better) = the 0.670 recipe + their own ModernBERT-large classifier
+# (a private notebook output) at 1.4 with the DeBERTa-v3 cut to 0.8 (NTL-22c); here Nuri Dudak's public ModernBERT-large
+# classifier (ntl-two-stage-encoders/modernbert, the 18 labels) takes that slot. Needs dc (the hf_cls branch).
+_MB_DC_LINE = "            _cls = AutoModelForSequenceClassification.from_pretrained(spec['path'], dtype=torch.float32).to('cuda:0').eval()\n"
+_MB_DC_SETUP_END = "print('DeBERTa-v3 classifier:', DEB_CLS_DIR)\n"
+_MB_RUN_OLD = ('if DEB_CLS_DIR:   # fork (evgendvorkin\'s NTL-20): the DeBERTa-v3 classifier at his weight 2.2\n'
+               '    MODELS.append({"name": "deb_v3_cls", "type": "hf_cls", "path": DEB_CLS_DIR, "w": 2.2, "bs": 16, "max_len": 384})\n')
+MB = [(_MB_DC_SETUP_END, _MB_DC_SETUP_END
+       + "# fork (areebbb's NTL-22c slot, Nuri Dudak's public model): a fine-tuned ModernBERT-large classifier\n"
+       "_mb_cls = sorted(glob.glob('/kaggle/input/**/ntl-two-stage-encoders/modernbert/config.json', recursive=True))\n"
+       "MB_CLS_DIR = os.path.dirname(_mb_cls[0]) if _mb_cls else None\n"
+       "print('ModernBERT classifier:', MB_CLS_DIR)\n"),
+      (_MB_DC_LINE, _MB_DC_LINE.replace("dtype=torch.float32)", "dtype=torch.float32, **spec.get('kw', {}))")),
+      (_MB_RUN_OLD, 'if MB_CLS_DIR:   # fork (areebbb\'s NTL-22c weights): ModernBERT-large 1.4 (512 tokens) + DeBERTa-v3 0.8\n'
+       '    MODELS.append({"name": "mb_cls", "type": "hf_cls", "path": MB_CLS_DIR, "w": 1.4, "bs": 16, "max_len": 512, '
+       '"kw": {"attn_implementation": "sdpa"}})\n'
+       'if DEB_CLS_DIR:   # fork (evgendvorkin\'s NTL-20): the DeBERTa-v3 classifier, 2.2 alone or 0.8 beside the ModernBERT\n'
+       '    MODELS.append({"name": "deb_v3_cls", "type": "hf_cls", "path": DEB_CLS_DIR, "w": 0.8 if MB_CLS_DIR else 2.2, '
+       '"bs": 16, "max_len": 384})\n')]
 # 2026-11-03: our own member, trained on the free TPU v5e-8 (kaggle/member/tpu_member.py, kernel ntl-tpu-op8): Qwen3-8B-Base
 # LoRA24, stage 1 on crtproduction's open pool (190k passages), stage 2 on the official rows once per exp015 fold and
 # once on all; read like q8v5 (same base, five fold adapters + the full one, plain head and centred twin)
@@ -1487,6 +1590,13 @@ MORE = {"ew10": (EXTRA_W["ew10"], " Those external rows count fully in the TF-ID
                  "rows' (--sinkhorn_target_mix 0.50 instead of 0.35; aboodps's public 0.669 on the 0.672's version 4)."),
         "tm75": (None, " The balancing's target class shares sit three quarters of the way from the blend's own shares to the "
                  "official rows' (--sinkhorn_target_mix 0.75 instead of 0.35; aboodps's public 0.669 took 0.50)."),
+        "dc": (None, " One more member: a fine-tuned DeBERTa-v3 classifier (nuridudak's public ntl-two-stage-encoders, desklib "
+               "folder) at weight 2.2 (evgendvorkin's NTL-20, his version 18), skipped if it fails."),
+        "mb": (None, " Nuri Dudak's public ModernBERT-large classifier (ntl-two-stage-encoders) joins the DeBERTa-v3 one: "
+               "1.4 and 0.8 in its 2.2 slot (areebbb's 0.673 weights, which read their own private ModernBERT)."),
+        "rc": (None, " The TF-IDF, distort and SVC members' external rows also take olegzholobov's response corpus: its "
+               "40-250-word view, up to the matched rows' per-label counts (24,443 rows in all), de-duplicated against "
+               "train and the matched rows (whitegg's public 0.669, their code)."),
         "bs": (None, " Our balanced SVM takes the pre-fit SVC's place: v4n's recipe (four TF-IDF views, LinearSVC C 0.5, "
                "balanced class weights) fitted in the setup cell on open-pool rows only, 2,211 per label drawn by typography "
                "match_weight and 4,422 for the five Claude labels (exp049), after ozertuu's description of his private "
@@ -1586,6 +1696,35 @@ for _name, _sk, _xm, _typo, _more in (("ntl-v31ac-a20-sk30-osvc12-xm2-p30", "sk3
                                        ("sov", "cx", "z672", "w46", "bs", "tm50", "pp13")),
                                       ("ntl-v31ac-s668-z672-w106-bs-tm50-pp13-p30", "sk30", 1, None,
                                        ("sov", "cx", "z672", "w106", "bs", "tm50", "pp13")),
+                                      # 17:00 UTC: + whitegg's response-corpus rows (their 0.669: our 0.668 + them, pool v13)
+                                      ("ntl-v31ac-s668-z672-w4-pv0-tm50-pp13-rc-p30", "sk30", 1, None,
+                                       ("sov", "cx", "z672", "w4", "pv0", "tm50", "pp13", "rc")),
+                                      ("ntl-v31ac-s668-z672-w106-bs-tm50-pp13-rc-p30", "sk30", 1, None,
+                                       ("sov", "cx", "z672", "w106", "bs", "tm50", "pp13", "rc")),
+                                      # 22:50 UTC: + evgendvorkin's DeBERTa-v3 classifier member (nuridudak's encoders, w 2.2)
+                                      ("ntl-v31ac-s668-z672-w4-pv0-tm50-pp13-dc-p30", "sk30", 1, None,
+                                       ("sov", "cx", "z672", "w4", "pv0", "tm50", "pp13", "dc")),
+                                      # 2026-11-07 05:10 UTC: the public 0.670 recipe (areebbb V1 = evgendvorkin V18: version 1's
+                                      # 4 / 6 weights with Nuri Dudak's SVM + the DeBERTa-v3 classifier at 2.2) and it with our levers
+                                      ("ntl-v31ac-s668-z672-w46-dc-p30", "sk30", 1, None, ("sov", "cx", "z672", "w46", "dc")),
+                                      ("ntl-v31ac-s668-z672-w46-dc-tm50-pp13-p30", "sk30", 1, None,
+                                       ("sov", "cx", "z672", "w46", "dc", "tm50", "pp13")),
+                                      ("ntl-v31ac-s668-z672-w46-bs-dc-tm50-pp13-p30", "sk30", 1, None,
+                                       ("sov", "cx", "z672", "w46", "bs", "dc", "tm50", "pp13")),
+                                      ("ntl-v31ac-s668-z672-w106-bs-dc-tm50-pp13-p30", "sk30", 1, None,
+                                       ("sov", "cx", "z672", "w106", "bs", "dc", "tm50", "pp13")),
+                                      ("ntl-v31ac-s668-z672-w46-dc-tm50-pp13-rc-p30", "sk30", 1, None,
+                                       ("sov", "cx", "z672", "w46", "dc", "tm50", "pp13", "rc")),
+                                      # 2026-11-07 08:40 UTC (11-07: the corpus rows +0.003 twice): the 0.670 recipe + them, and
+                                      # areebbb's 0.673 slot with Nuri Dudak's public ModernBERT; pool v15 (v13: -0.001 on #68)
+                                      ("ntl-v31ac-s668-z672-w46-dc-rc-p30", "sk30", 1, None, ("sov", "cx", "z672", "w46", "dc", "rc")),
+                                      ("ntl-v31ac-s668-z672-w46-dc-mb-p30", "sk30", 1, None, ("sov", "cx", "z672", "w46", "dc", "mb")),
+                                      ("ntl-v31ac-s668-z672-w46-dc-mb-rc-p30", "sk30", 1, None,
+                                       ("sov", "cx", "z672", "w46", "dc", "mb", "rc")),
+                                      ("ntl-v31ac-s668-z672-w46-dc-mb-tm50-rc-p30", "sk30", 1, None,
+                                       ("sov", "cx", "z672", "w46", "dc", "mb", "tm50", "rc")),
+                                      ("ntl-v31ac-s668-z672-w46-dc-tm50-rc-p30", "sk30", 1, None,
+                                       ("sov", "cx", "z672", "w46", "dc", "tm50", "rc")),
                                       ("ntl-v31ac-s668-am70-pv0-tm50-v15-p30", "sk30", 1, None,
                                        ("sov", "cx", "am70", "pv0", "v15", "tm50")),
                                       ("ntl-v31ac-a20-sk30-osvc12-xm4-p30", "sk30", 4, None, ()),
@@ -1619,17 +1758,18 @@ for _name, _sk, _xm, _typo, _more in (("ntl-v31ac-a20-sk30-osvc12-xm2-p30", "sk3
                                       ("ntl-v31ac-a20-sk30-osvc12-xm2-tf150-kx-p30", "sk30", 2, None, ("tf150", "kx"))):
     _knobs = [SK[_sk], osvc_xm(_xm), ("'--svc_w', '1.5',", "'--svc_w', '12',")] + ([TYPO[_typo]] if _typo else []) \
         + [MORE[m][0] for m in _more if m not in ("sov", "pw", "v35", "pp13", "mw", "v14", "v15", "vfix", "top2", "am70", "pv0",
-                                                   "z672", "w4", "w46", "tm50", "tm75", "bs", "w106")] \
+                                                   "z672", "w4", "w46", "tm50", "tm75", "bs", "w106", "rc", "dc", "mb")] \
         + (sov_variant(V35_PATCHES if "v35" in _more else SOV_PATCHES, 1, (TOP2 if "top2" in _more else [])
                        + (PV0 if "pv0" in _more else [])) if "sov" in _more else []) \
         + (AM70 if "am70" in _more else []) \
         + (PW_PATCHES if "pw" in _more else []) + (CXMW_PATCHES if "mw" in _more else []) + P30 \
         + (Z672 if "z672" in _more else []) \
         + (W4 + ([] if "am70" in _more else W4_ATLAS) if "w4" in _more else []) + (W46 if "w46" in _more else []) \
-        + (W106 if "w106" in _more else []) + (BSVC if "bs" in _more else []) \
+        + (W106 if "w106" in _more else []) + (BSVC if "bs" in _more else []) + (RC if "rc" in _more else []) + (DC if "dc" in _more else []) + (MB if "mb" in _more else []) \
         + [p_ for m in _more if m in TM for p_ in TM[m]]
     assert len({"w4", "w46", "w106"} & set(_more)) <= 1 and not {"tm50", "tm75"} <= set(_more), _name
     assert "bs" not in _more or "z672" in _more, _name
+    assert "mb" not in _more or "dc" in _more, _name
     VARIANTS[_name] = {
         "base": "v31",
         "patches": [MIRROR_LLAMA_AC] + LLAMA_COPY + FAST_COMMIT_V31 + ATLAS_TO_DEADLINE_V31 + L24_DP
@@ -1642,7 +1782,8 @@ for _name, _sk, _xm, _typo, _more in (("ntl-v31ac-a20-sk30-osvc12-xm2-p30", "sk3
         if "sov" in _more else SOV_CELLS[:1] if "sib08" in _more else [],
         "models": [LLAMA_AC], "drop_kernels": [LLAMA_CACHE],
         "datasets": [OPEN_POOL_V13 if "pp13" in _more else OPEN_POOL] + ([AB_DATA] if "sov" in _more else [])
-        + ([KILUPY] if "kx" in _more or "kc" in _more else []) + (Z672_DATA if "z672" in _more else []),
+        + ([KILUPY] if "kx" in _more or "kc" in _more else []) + (Z672_DATA if "z672" in _more else [])
+        + ([RC_DATA] if "rc" in _more else []) + ([DC_DATA] if "dc" in _more else []),
         **({"docker_image": Z672_IMAGE} if "z672" in _more else {}),
         "kernels": sorted({TPU_MEMBERS[TPU_W[m][0]][5] for m in _more if m in TPU_W} | ({TPU_OP8} if "op8r" in _more else set())),
         "intro": V31_INTRO + " ATLAS-8B is mixed at 20% instead of 10%."

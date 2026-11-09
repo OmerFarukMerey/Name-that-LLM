@@ -483,18 +483,35 @@ Out of fold the V34.1 verifier is uninformative on prompts it has not seen (reru
 # 2026-11-05: ozertuu's public 0.672 = our 0.668 + Nuri Dudak's two Qwen3-14B adapters in the n14b member and a pre-fit SVM;
 # its version 1 scored (open-pool SVM 4.0, ozertuu's private Super-SVC V5 at 6.0), versions 2-4 fall back to Nuri Dudak's
 # v4n SVM with other weights (renamed at version 4, 11:58 UTC)
-OZ_0672 = "{K}/code/ozertuu/0-672-dual-svc-blend-residual-refinement"
+OZ_0672 = "{K}/code/ozertuu/0-672-dual-svc-better"   # 2026-11-06: public again, renamed (kernel id 142779456)
 OUR_0668 = "{K}/code/omerfarukmerey/0-668-verifier-matched-rows-pool-prompts"
 ND_DATA = ("nuridudak/ntl-q14-lora", "nuridudak/ntl-q14-lora-v4", "nuridudak/ntl-svc-prefit-pool-v4n")
 Z672_SECTION = """## ozertuu's 0.672: two more Qwen3-14B adapters and a second, pre-fit SVM
 
-ozertuu's [0.672 | Dual-SVC Blend + Residual Refinement]({oz}) is our [0.668 notebook]({ours}) with three additions. Its version 1 is the one that scored **0.672** (the notebook's page: "Best Score 0.672 V1"); the later versions keep the code and change the SVM weights:
+ozertuu's [0.672+ | Dual-SVC BETTER!]({oz}) is our [0.668 notebook]({ours}) with three additions. Its version 1 is the one that scored **0.672** (the notebook's page: "Best Score 0.672 V1"); the later versions keep the code and change the SVM weights:
 
 * **The Qwen3-14B part-two member reads three adapters.** Nishant Dahal's checkpoint is averaged with Nuri Dudak's [ntl-q14-lora]({q1}) and [ntl-q14-lora-v4]({q4}), adapters of the same recipe (Qwen3-14B-Base cut to 27 layers, the same eight read-out layers and end token; his metadata reports out-of-fold balanced accuracy 0.627 and 0.636 for their plain heads), and the member's weight goes from 2.5 to 2.8. `infer.py` averages a member's adapters equally, so the spec's `adapter_weights` entry is not read. Each adapter is one more pass of the 14B model over the test set; ATLAS stops at a fixed deadline, so it has that much less time.
 * **A second, pre-fit SVM.** The notebook looks for ozertuu's "Super-SVC V5" (its code: trained on 39.8k clean, balanced pool passages plus Claude extras, CV 0.3630), which version 1 loaded; that dataset is not public, and without it the same code falls back to Nuri Dudak's [ntl-svc-prefit-pool-v4n]({svc}) (CC BY-SA 4.0), a 4-view LinearSVC (character 3-5, word 1-3, word-shape 2-6 and function-word 1-3 n-grams, C 0.5, balanced classes) fitted on his 241,675-passage pool plus the official rows. It rebuilds the SVM's vectorizers from the stored vocabularies and idf vectors and mixes the log-softmax of its decision values into the blend (`--ours_svc_w`). Version 1 weighed that SVM **6.0** and cut the open-pool SVM from 12 to **4.0**; versions 2-3 weigh the pre-fit SVM 0.85 beside the open-pool SVM at 12, version 4 1.2 beside 10 (with ATLAS at 22% below margin 0.36). {svc_choice}
 * **A LightGBM that does not run here.** The same block asks for a "top34" LightGBM (`--top34_w`), but the model file it loads (`top34.lgb`) is not in Nuri Dudak's dataset (which holds 25 per-fold models for 34 features, while the block computes 16), so it stops there, inside a `try` that logs a warning; the SVM is already in the blend by then. Whether version 1's private dataset held that file cannot be seen from outside; this version runs without it.
 
 Version 1 ran on version 14 of the open pool (its commit log prints `svc pool = open pool 211369`); {pool_line} ozertuu's notebook lists Kaggle's environment image `de153e6d`, which this version pins too (our 0.668 ran in `2757e0c7`).{z_note}
+"""
+DC_DS = "nuridudak/ntl-two-stage-encoders"   # desklib/: DeBERTa-v3 sequence classifier with the 18 official labels
+EV_NTL20 = "{K}/code/evgendvorkin/name-that-llm-deep-forensic-eda-with-analogie"   # his version 18 adds the member (unscored)
+DC_SECTION = """## A fine-tuned DeBERTa-v3 classifier as one more member
+
+Nuri Dudak's public [ntl-two-stage-encoders]({ds}) holds a DeBERTa-v3 sequence classifier (the `desklib` folder) with its own head over the 18 official labels. evgendvorkin's [Deep Forensic EDA]({ev}) (its version 18) adds it to this pipeline as a member: `infer.py` tokenises each passage (up to 384 tokens), runs the classifier in fp32, reorders its logits to the label order and mixes their log-softmax into the blend at weight **2.2**. This version takes his member code unchanged except for one guard: any failure (a missing file, an unexpected label) skips the member and the run goes on without it. The classifier adds a few minutes of GPU time before ATLAS, whose deadline is fixed, so ATLAS has that much less time.{dc_note}
+"""
+AB_0673 = "{K}/code/areebbb/0-673-i-m-better"   # 2026-11-07: the 0.670 recipe + their own ModernBERT-large (private input)
+MB_NOTE = (" This version also takes the dataset's ModernBERT-large classifier (the `modernbert` folder: 28 layers, the same 18 "
+           "labels; read in fp32 with SDPA attention, up to 512 tokens) and splits the slot's 2.2 as areebbb's [0.673]({ab}) does: "
+           "**1.4** for the ModernBERT, **0.8** for the DeBERTa. areebbb's 0.673 reads their own ModernBERT, a private notebook "
+           "output; this is the same slot with Nuri Dudak's public one.")
+RC_DS = "olegzholobov/name-that-llm-response-corpus"   # licence "Other": mixed source licences, kept per row
+WG_0669 = "{K}/code/whitegg/ntl-fuse33-0-668-fork-response-corpus"   # 2026-11-05: our 0.668 + the corpus rows, public 0.669
+RC_SECTION = """## The response corpus in the external rows
+
+whitegg's [ntl fuse33]({wg}) (public **0.669**) is our 0.668 with the open pool cut back to its version-13 rows for the SVM and the matched rows (by passage id) and one more source behind the TF-IDF, distort and SVM members: olegzholobov's [Name That LLM response corpus]({rc}), public answers of the 18 models collected from published sources (Speechmap, EQ-Bench, public Hugging Face datasets and others; snapshot of 2026-10-15). Its 40-250-word view holds 24,015 unique responses. This version appends them to the matched rows with whitegg's code, unchanged: the official 18 labels only, NFKC and whitespace normalisation, exact de-duplication against `train.csv` and the matched rows, and at most the matched rows' own count per model (24,443 rows in all), so the label mix stays the same. The corpus's licence is listed as "Other": its rows keep their sources' licences, recorded per row in its provenance files.{rc_note}
 """
 BS_SECTION = """## The second SVM, fitted in the notebook: balanced, on open-pool passages
 
@@ -589,13 +606,16 @@ def build_v31ac(kernel, results, scored):
     w46, w4 = "w46" in tokens, "w4" in tokens   # 2026-11-05: the SVM weights of the 0.672's scored version 1 / of its version 4
     w106 = "w106" in tokens   # 2026-11-06 (exp049): open-pool SVM at version 4's 10, the second SVM at version 1's 6
     bs = "bs" in tokens       # 2026-11-06 (exp049): our balanced SVM, fitted in the notebook, in the pre-fit SVM's place
+    rc = "rc" in tokens       # 2026-11-06: olegzholobov's response corpus in the external rows (whitegg's public 0.669)
+    dc = "dc" in tokens       # 2026-11-06: nuridudak's fine-tuned DeBERTa-v3 classifier as a member (evgendvorkin's NTL-20)
+    mb = "mb" in tokens       # 2026-11-07: + his ModernBERT-large classifier, the slot split 1.4 / 0.8 (areebbb's 0.673)
     assert (z672 or not (w46 or w4 or w106 or bs)) and w46 + w4 + w106 <= 1
     osvc_w, zsvc_w = ("4.0", "6.0") if w46 else ("10.0", "6.0") if w106 else ("10.0", "1.2") if w4 else (osvc_w, "0.85")
     assert tokens[:2] == ["ntl", "v31ac"] and set(tokens[2:]) <= {f"a{pct}", f"gsq{gpct}", "m45", f"sk{sk}", f"comp{cpct}",
                                                                   f"osvc{osvc}", f"ax{ax}", f"typo{typo and typo.replace('.', '')}",
                                                                   "p30", f"xm{xm}", "ew10", f"{tf}", "cx", "kx", "sib08", "sov", "g37",
                                                                   "v35", "pp13", "mw", "kc", "v14", "v15", "op8r", "vfix", "top2", "am70", "pv0",
-                                                                  "z672", "w46", "w4", "w106", "bs", f"tm{tm}",
+                                                                  "z672", "w46", "w4", "w106", "bs", "rc", "dc", "mb", f"tm{tm}",
                                                                   *(f"{m}w{int(w * 10)}" for m, w in tpu)}, kernel
     assert not (sib and sov) and not ((sib or sov) and typo) and (sov or not v35)
     assert (sov or not (vfix or top2 or am70 or pv0)) and not (v35 and (vfix or top2 or pv0)) and not (pv0 and top2) and not (am70 and m45)
@@ -638,6 +658,11 @@ def build_v31ac(kernel, results, scored):
         == ("# ---------------- 2b. Ours pre-fit SVC-v4n" in infer) \
         == all(d in meta["dataset_sources"] for d in ND_DATA) and (not z672 or (sov and cx and xm == 1 and not tpu))
     assert bs == ("# fork (exp049): our balanced SVM" in codes[0]) == ("OSVC_FINAL = str(BSVC)" in codes[0])
+    assert rc == ("# fuse33 (fork): append the curated short view" in codes[0]) == (RC_DS in meta["dataset_sources"]) \
+        and (not rc or xm == 1)
+    assert dc == ("# fork (evgendvorkin's NTL-20)" in codes[0]) == (DC_DS in meta["dataset_sources"]) \
+        == ('"name": "deb_v3_cls", "type": "hf_cls"' in codes[-1]) and (not dc or z672)
+    assert mb == ('"name": "mb_cls", "type": "hf_cls"' in codes[-1]) == ("ntl-two-stage-encoders/modernbert" in codes[0]) and (not mb or dc)
     snap13 = results.get("pool13") == SNAP13_REF   # the published version attaches the public copy of pool v13 instead
     assert snap13 == ("pool13" in results) and (pp13 or not snap13) and PP13_SECTION.count(SNAP13_SWAP[0]) == 1
     if snap13:
@@ -662,7 +687,7 @@ def build_v31ac(kernel, results, scored):
             + ["Extra w 1"] * ew + [f"TF-IDF {tfw}"] * bool(tf) + ["Stack Pool"] * cx + ["Pool Weights"] * mw + ["Kilupy Rows"] * kx + ["Claude Gate"] * kc \
             + ["Sibling 0.08"] * sib + ["Sovereign"] * sov + ["V35 Verifier"] * v35 + ["Gemini 3.7 Fix"] * g37 \
             + ["Verifier Fix"] * vfix + ["Top2 Gate"] * top2 + ["ATLAS m0.7"] * am70 + ["No Verifier"] * pv0 \
-            + ([f"Target Mix {tm / 100:g}"] if tm else []) + ["Balanced SVM"] * bs \
+            + ([f"Target Mix {tm / 100:g}"] if tm else []) + ["Balanced SVM"] * bs + ["Response Corpus"] * rc + ["DeBERTa Classifier"] * (dc and not mb) + ["ModernBERT + DeBERTa"] * mb \
             + [f"TPU {TPU_DESC[m][2]}" for m, _ in tpu]
         title = results.get("title") or next(t for t in (f"{results['score']} | {h}" + "".join(f" + {k}" for k in knobs) for h in (
             f"Open-Pool SVC + {xm}x Matched Rows", f"Open Pool + {xm}x Matched Rows", f"{xm}x Matched Rows")) if len(t) <= 50)
@@ -693,6 +718,8 @@ def build_v31ac(kernel, results, scored):
     what += [f"**the TF-IDF, distort and SVM members' external rows drawn from the open pool by typography match, {xm}× "
              f"the old count** (areebbb's change: 1× in their scored version J, 2× in K)"] if xm else []
     what += ["**those external rows at full weight** (`--extra_w 1.0`)"] if ew else []
+    what += ["**olegzholobov's response corpus added to those rows** (its 40-250-word view, up to the matched rows' "
+             "count per model; whitegg's change)"] if rc else []
     what += ["**kilupy's 18-model corpus added to those rows** (16,603 Claude passages from the Anthropic API + 300 per other "
              "model, CC BY 4.0)"] if kx else []
     what += [f"**the TF-IDF member at weight {tfw}**"] if tf else []
@@ -716,10 +743,14 @@ def build_v31ac(kernel, results, scored):
              + ("the two SVM weights of the 0.672's scored version 1" if w46 else "the SVM weights of its version 4" if w4
                 else "beside the open-pool SVM at version 4's 10" if w106
                 else "beside the open-pool SVM at 12, as in its versions 2-3") + ")"] if z672 else []
+    what += ["**a fine-tuned DeBERTa-v3 classifier as one more member at weight 2.2** (Nuri Dudak's public encoder; "
+             "evgendvorkin's change)"] if dc and not mb else []
+    what += ["**two fine-tuned classifiers as members: Nuri Dudak's public ModernBERT-large at 1.4 and his DeBERTa-v3 at 0.8** "
+             "(areebbb's weights for that slot; their 0.673 reads their own, private ModernBERT)"] if mb else []
     what += ["**that second SVM fitted in the notebook by us: balanced, on open-pool passages only** (public data in the "
              "place of the private SVM behind the 0.672)"] if bs else []
-    what += ["**the open pool read at its Kaggle version 13** (190,588 passages, the file the 0.667 runs read, from an "
-             "unmodified copy)"] if pp13 else []
+    what += ["**the open pool read at its Kaggle version 13** (190,588 passages, the file the 0.667 runs read, from "
+             + ("melvindenishl's public, byte-identical snapshot)" if snap13 else "an unmodified copy)")] if pp13 else []
     what += ["**+0.3 on gemini-3.7-flash's log-score after the balancing**"] if g37 else []
     what += ["**the open pool read at its current Kaggle version 14** (211,369 passages, what a new copy attaches)"] if v14 else []
     what += [f"**the open pool read at its current Kaggle version 15** ({V15_ROWS} passages, what a new copy attaches)"] if v15 else []
@@ -752,6 +783,8 @@ def build_v31ac(kernel, results, scored):
                               "190,588 public real-model passages (release v11, CC BY-SA 4.0)")
     x_sec = "\n".join(x for x in (AX_SECTION.replace("{k}", str(ax)).format(**fmt) if ax else "", o_sec,
                                    XM_SECTION.format(xm=xm, n_rows=XM_ROWS[xm], x_note=results.get("x_note", ""), **fmt) if xm else "",
+                                   RC_SECTION.format(rc=f"{K}/datasets/{RC_DS}", wg=WG_0669.format(K=K),
+                                                     rc_note=results.get("rc_note", "")) if rc else "",
                                    KX_SECTION.format(kil=KILUPY_DS, kx_rows=KX_ROWS[xm], kx_tf=KX_TF[bool(tf)],
                                                      kx_note=results.get("kx_note", "")) if kx else "",
                                    TF_SECTION.format(tfw=tfw, t_note=results.get("t_note", "")) if tf else "",
@@ -784,11 +817,15 @@ def build_v31ac(kernel, results, scored):
                                                                      ", ATLAS 22% below 0.36).")
                                                        if w4 else "This version takes versions 2-3's (open-pool SVM **12**, "
                                                        "pre-fit SVM **0.85**).",
-                                                       pool_line="this version reads version 13 (190,588 passages) from our "
-                                                       "unmodified copy (see below)." if pp13 else "this version reads version "
+                                                       pool_line=("this version reads version 13 (190,588 passages) from "
+                                                       + ("melvindenishl's public snapshot" if snap13 else "our unmodified copy")
+                                                       + " (see below).") if pp13 else "this version reads version "
                                                        f"15 ({V15_ROWS} passages: version 14 plus 1,254 gap-filling ones), what "
                                                        "a new copy attaches.")
                                    if z672 else "",
+                                   DC_SECTION.format(ds=f"{K}/datasets/{DC_DS}", ev=EV_NTL20.format(K=K),
+                                                     dc_note=(MB_NOTE.format(ab=AB_0673.format(K=K)) if mb else "")
+                                                     + results.get("dc_note", "")) if dc else "",
                                    BS_SECTION.format(w=zsvc_w, replica=BS_REPLICA[f"{zsvc_w}/{osvc_w}"],
                                                      bs_note=results.get("bs_note", "")) if bs else "",
                                    (PP13_SECTION.replace(*SNAP13_SWAP) if snap13 else PP13_SECTION).format(
@@ -873,6 +910,20 @@ def build_v31ac(kernel, results, scored):
                       "the Anthropic API and OpenRouter passages for the other 13 models.\n" if kx or kc else "")
                    + "* **PeterDreamHan** —")]
     if osvc or ax:
+        if mb:
+            swaps += [("* **PeterDreamHan** —",
+                       f"* **areebbb** — also the ModernBERT 1.4 + DeBERTa 0.8 split of the classifier slot ([0.673 notebook]({AB_0673.format(K=K)}))."
+                       "\n* **PeterDreamHan** —")]
+        if dc:
+            swaps += [("* **PeterDreamHan** —",
+                       f"* **evgendvorkin** — the DeBERTa-v3 classifier member and its code ([Deep Forensic EDA]({EV_NTL20.format(K=K)}), "
+                       f"version 18); the classifier is Nuri Dudak's, from [ntl-two-stage-encoders]({K}/datasets/{DC_DS})."
+                       "\n* **PeterDreamHan** —")]
+        if rc:
+            swaps += [("* **PeterDreamHan** —",
+                       f"* **whitegg** — the response-corpus rows and their code ([ntl fuse33]({WG_0669.format(K=K)}), public 0.669).\n"
+                       f"* **olegzholobov** — the [Name That LLM response corpus]({K}/datasets/{RC_DS}) (licence \"Other\": its rows "
+                       "keep their sources' licences).\n* **PeterDreamHan** —")]
         swaps += [("* **PeterDreamHan** —",
                    f"* **crtproduction** — the [Name That LLM Open Pool]({OPEN_POOL_DS.format(K=K)}) (CC BY-SA 4.0)"
                    + (" and its typography match weights" if xm else "") + ".\n* **PeterDreamHan** —")]
@@ -943,8 +994,8 @@ def build_v31ac(kernel, results, scored):
                    "· builds on ozertuu's 0.672 and our 0.668, which build on mercurydust's 0.660, Roman Tamrazov's 0.654 and "
                    "the 0.651 recipe ·"),
                   ("\n\nThis is mercurydust's [",
-                   f"\n\nThis version starts from ozertuu's [0.672 | Dual-SVC Blend + Residual Refinement]({OZ_0672.format(K=K)}) "
-                   f"({results.get('oz_state', 'scored **0.672**; ozertuu made it private on 2026-11-05')}), which is our [0.668 notebook]({OUR_0668.format(K=K)}) plus Nuri Dudak's two Qwen3-14B "
+                   f"\n\nThis version starts from ozertuu's [0.672+ | Dual-SVC BETTER!]({OZ_0672.format(K=K)}) "
+                   f"({results.get('oz_state', 'scored **0.672** with its version 1, which read a private SVM')}), which is our [0.668 notebook]({OUR_0668.format(K=K)}) plus Nuri Dudak's two Qwen3-14B "
                    "adapters and a pre-fit SVM (section *ozertuu's 0.672* below). The code goes back further:"
                    "\n\nThis is mercurydust's ["),
                   ("Nishant Dahal's Qwen3-14B (2.5) and Qwen2.5-14B (1) part-two checkpoints;",
@@ -973,7 +1024,8 @@ def build_v31ac(kernel, results, scored):
                    f"* **aboodps** — the Sinkhorn target mix 0.50 ([NTL 672 Sinkhorn 050]({AB_0669.format(K=K)}), public 0.669)."
                    "\n* **PeterDreamHan** —")]
     if results.get("tldr"):   # a short summary box right under the header line
-        swaps += [("\n\nThis is mercurydust's [", "\n\n" + results["tldr"] + "\n\nThis is mercurydust's [")]
+        _at = "\n\nThis version starts from ozertuu's [" if z672 else "\n\nThis is mercurydust's ["
+        swaps += [(_at, "\n\n" + results["tldr"] + _at)]
     for a, b in swaps:
         assert doc.count(a) == 1, a
         doc = doc.replace(a, b)

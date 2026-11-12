@@ -101,6 +101,7 @@ MSG=(ntl-v31ac-a20-sk30-osvc12-xm2-p30 "$KX + external rows 2x drawn by match_we
      ntl-z684-neg-sib "$Z684 + the 0.683's typographic negative evidence and sibling-style re-ranking on the final scores"
      ntl-z684-typo "$Z684 + the 0.683's per-fold typography step (gated marker evidence fitted on the official rows + -15 negative rules)"
      ntl-z684-typo-sib "$Z684 + the 0.683's per-fold typography step + its sibling-style re-ranking on the final scores"
+     ntl-z684-wemm07 "$Z684 + CHEN Han's WeMM-Embedding-4B expert at 7% (the 0.683's worker and fusion, deadline-guarded)"
      ntl-v31ac-a20-sk30-osvc12-xm3-p30 "$KX + external rows 3x drawn by match_weight (K: 2x)"
      ntl-v31ac-a20-sk30-osvc12-xm4-p30 "$KX + external rows 4x drawn by match_weight (K: 2x)"
      ntl-v31ac-a20-sk60-osvc12-xm2-typo12-p30 "${KX/Sinkhorn 0.30/Sinkhorn 0.60} + external rows 2x by match_weight + typography x1.2 (K + qasminumber v5's knobs)"

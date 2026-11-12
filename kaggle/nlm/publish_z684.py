@@ -22,7 +22,7 @@ N14B = f"{K}/datasets/nishantdahal/ntl-handwriting-blend"
 RESULTS = {}
 
 
-def changes(oq, w, gsq, neg="0", sib="0.0"):
+def changes(oq, w, gsq, neg="0", sib="0.0", typo="0", wemm="0"):
     out = []
     if oq != "0.72":
         out.append(("v4 LoRA only" if float(oq) == 1 else f"v4 LoRA {pct(oq)}",
@@ -35,6 +35,20 @@ def changes(oq, w, gsq, neg="0", sib="0.0"):
     if gsq != "0.03":
         out.append((f"GSQ {pct(gsq)}", f"**the Qwen3.8-27B GSQ3 classifier at {pct(gsq)} instead of 3%** (lightningv08's "
                     f"step from 3% to 6% took his line from 0.680 to [0.681]({LV681}))"))
+    if float(wemm) > 0:
+        out.append((f"WeMM {pct(wemm)}", f"**CHEN Han's second native expert, Tencent WeMM-Embedding-4B (five fold states), at a "
+                    f"{pct(wemm)} log-linear share after the Qwen3-Embedding expert**, run as the public [0.683]({E683}) runs it: its "
+                    "`wemm_embedding_worker.py` and `wemm_fusion.py` unchanged (wired by lightningv08 in his five-fold embeddings "
+                    "notebook), one replica per T4 (folds 0-2 and 3-4), with a deadline after which unscored folds fall back to the "
+                    "mean of the scored ones; any failure leaves the 0.684 path untouched. The 0.684 has only the Qwen3-Embedding "
+                    "expert; on the 0.683, WeMM at 10% instead of 7% lost 0.007 and 4-5% about the same as 7%."))
+    if typo == "1":
+        out.append(("Typography Step", f"**the public [0.683]({E683})'s per-fold typography step on every native fold before the "
+                    "mean**: a smoothed Bernoulli score per class from which of 37 typographic markers (dashes, curly quotes, "
+                    "semicolons, list and heading marks, stock phrases) a passage contains, fitted on the official rows and "
+                    "clipped to ±0.30 logits, gated to close calls, longer passages and passages with markers; then the "
+                    "0.683's -15 negative rules (spaced em dash, curly apostrophe, curly opening quote). The 0.684 has no "
+                    "typography step of its own; `typography_evidence` is the 0.683's, unchanged (V31 lineage)."))
     if neg == "1":
         out.append(("Typography Rules", f"**the public [0.683]({E683})'s typographic negative evidence on the final scores**: "
                     "-15 logits for the classes the official rows never show with a passage's spaced em dash (all but "
@@ -100,7 +114,7 @@ All fitted states come from the attached datasets ([lightningv08's asset dataset
 ## Credits and licences
 
 * **ozertuu (Ertuğrul Özer)**: the pipeline ([NTL Atlas V9 Qwen Embed]({ATLAS9})).
-""" + ("* **omkarpattanaik123 (Omkar Pattanaik)**: the typographic negative evidence and the sibling-style re-ranking ported from the public [0.683](" + E683 + ").\n" if post and (post[0] == "1" or float(post[1]) > 0) else "") + f"""* **lbjyang**: the public [0.684]({Z684}) this one runs (also published, byte for byte, by [krshs90]({KRSHS}) and [wadigongren]({WADI})).
+""" + ("* **omkarpattanaik123 (Omkar Pattanaik)**: the typography step, typographic negative evidence and sibling-style re-ranking ported from the public [0.683](" + E683 + ") (its typography follows mercurydust's and Roman Tamrazov's V31 line).\n" if post else "") + f"""* **lbjyang**: the public [0.684]({Z684}) this one runs (also published, byte for byte, by [krshs90]({KRSHS}) and [wadigongren]({WADI})).
 * **Nuri Dudak**: the [q14 LoRA v4]({OQ4}) and v1 adapters. **Nishant Dahal**: the two-stage Qwen3-14B and Qwen2.5-14B LoRAs. **Dhruv Tibarewal**: the v5 LoRA24 adapters, the matched clean pool and the offline wheels.
 * **CHEN Han (concyclics)**: the native Qwen3-Embedding-8B expert. **lightningv08 (Vladislav Lavrentev)**: the Qwen3.8-27B GSQ3 classifier, the pre-fitted states and the [asset dataset]({ASSETS}).
 * Lucas Boesen, Roman Tamrazov, mercurydust, Areeb Ali, prvsiyan, pjmathematician, alexchilton (the Llama-3.1-8B mirror) and the other data and model authors whose inputs are attached; crtproduction for the Open Pool (CC BY-SA 4.0).

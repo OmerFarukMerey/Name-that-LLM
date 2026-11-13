@@ -22,6 +22,13 @@ Knobs:
              wemm_embedding_worker.py and wemm_fusion.py unchanged, one worker per T4 (folds 0-2 / 3-4) after the
              Qwen3-Embedding expert, a monotonic deadline at the native deadline + 20 min (unscored folds fall back to
              the mean of the scored ones), mixed log-linearly per fold at the share; any failure keeps the 0.684 path
+    ll<NN>   our own Llama-3.1-8B LoRA24 member ll8op1 (full-data adapter; stage 1 on the Open Pool v12, 211k rows,
+             1.48 epochs, match-weighted; stage 2 on the official rows; out-of-fold balanced accuracy 0.6146, private
+             dataset omerfarukmerey/ntl-ll8op1-full) added to the ll8v5 member at NN% of its adapter weight, the six
+             v5 adapters sharing the rest (one extra Llama pass)
+    op<NN>   our Qwen3-8B LoRA24 member op8v1 (TPU, stage 1 on the Open Pool v13 + official rows; OOF 0.6305 vs q8v5's
+             0.6146; swapped in for q8v5's adapters on the 0.668 line it lost 0.008) put first in the q8v5 member at NN%
+             of its adapter weight (first, so the Gaussian head keeps fitting on q8v5's own full-data adapter)
 
     python kaggle/nlm/build_z684.py [variant ...]
 """
@@ -108,6 +115,16 @@ def mix_wemm(z, fold):
 
 '''
 WEMM_MODEL = "dangkhoa2016/tencent-wemm-embedding-4b/Transformers/default/1"
+LLOP_DS = "omerfarukmerey/ntl-ll8op1-full"
+EXTRA = {   # name: member additions outside the tuple
+    "ntl-z684-ll25": dict(llop="0.25"),
+    "ntl-z684-ll40": dict(llop="0.40"),
+    "ntl-z684-op25": dict(op8="0.25"),
+    "ntl-z684-op40": dict(op8="0.40"),
+    "ntl-z684-ll25-op25": dict(llop="0.25", op8="0.25"),
+}
+OP8_KERNEL = "omerfarukmerey/ntl-tpu-op8"
+VARIANTS.update({name: ("0.72", "2.5", "0.03") for name in EXTRA})
 
 E683 = HERE / "upstream_omkarpattanaik123_apex_v1.ipynb"
 POST = '''NEG_RULES = [(' \u2014 ', {'claude-opus-4-6', 'claude-opus-5', 'glm-5.3', 'glm-5.3-flash'}, True),   # spaced em dash: only these
@@ -185,6 +202,22 @@ def build(name):
         patch(cells, run, '"w": 2.5,', f'"w": {w},')
     if gsq != "0.03":
         patch(cells, run, "'--gsq_share', '0.03'", f"'--gsq_share', '{gsq}'")
+    llop = EXTRA.get(name, {}).get("llop")
+    if llop:
+        rest = (1 - float(llop)) / 6
+        patch(cells, run, '"adapters": ALL8V5,', f'"adapters": ALL8V5 + [LLOP], "adapter_weights": [{rest:.6f}] * 6 + [{llop}],')
+        patch(cells, "import glob\nimport json", "ALL8V5 = [adapter_dir(f'll8v5_f{k}') for k in range(5)] + [adapter_dir('ll8v5')]\n",
+              "ALL8V5 = [adapter_dir(f'll8v5_f{k}') for k in range(5)] + [adapter_dir('ll8v5')]\n"
+              "LLOP = os.path.dirname(first('/kaggle/input/**/ntl-ll8op1-full/heads.pt'))   # our Llama-3.1-8B pool member ll8op1, "
+              "full-data adapter\nprint('ll8op1', LLOP)\n")
+    op8 = EXTRA.get(name, {}).get("op8")
+    if op8:
+        rest = (1 - float(op8)) / 6
+        patch(cells, run, '"adapters": AQ8V5,', f'"adapters": [OP8] + AQ8V5, "adapter_weights": [{op8}] + [{rest:.6f}] * 6,')
+        patch(cells, "import glob\nimport json", "AQ8V5 = [adapter_dir(f'q8v5_f{k}') for k in range(5)] + [adapter_dir('q8v5')]\n",
+              "AQ8V5 = [adapter_dir(f'q8v5_f{k}') for k in range(5)] + [adapter_dir('q8v5')]\n"
+              "OP8 = os.path.dirname(first('/kaggle/input/**/op8v1/heads.pt'))   # our Qwen3-8B TPU member op8v1, full-data adapter\n"
+              "print('op8v1', OP8)\n")
     if post:
         inf = "%%writefile infer.py"
         patch(cells, inf, "p.add_argument('--group_sim', type=float, default=0.70)\n",
@@ -243,16 +276,19 @@ def build(name):
                              "source": "%%writefile sibling_style.py\n" + body}]
     cells.insert(0, {"cell_type": "markdown", "metadata": {}, "source":
                      f"# {name}\n\nThe public [0.684]({URL}) (version 1); n14b: q14 LoRA v4 share {oq}, member weight {w}; "
-                     f"GSQ share {gsq}" + (f"; negative rules {neg}, sibling cap {sib}, typography {typo}, WeMM {wemm}." if post else ".")})
+                     f"GSQ share {gsq}" + (f"; negative rules {neg}, sibling cap {sib}, typography {typo}, WeMM {wemm}." if post else ".")
+                     + (f" ll8v5 member + our ll8op1 adapter at {llop}." if llop else "")
+                     + (f" q8v5 member + our op8v1 adapter at {op8}." if op8 else "")})
     out = HERE / name
     out.mkdir(exist_ok=True)
     (out / f"{name}.ipynb").write_text(json.dumps(nb, indent=1, ensure_ascii=False), encoding="utf-8")
     up = json.loads((HERE / "upstream_lbjyang_684_v1.meta.json").read_text(encoding="utf-8"))
     models = up["modelDataSources"] + ([WEMM_MODEL] if post and float(wemm) > 0 else [])
+    datasets = up["datasetDataSources"] + ([LLOP_DS] if llop else [])
     meta = {"id": f"omerfarukmerey/{name}", "title": name, "code_file": f"{name}.ipynb", "language": "python",
             "kernel_type": "notebook", "is_private": True, "enable_gpu": True, "enable_tpu": False, "enable_internet": False,
-            "dataset_sources": up["datasetDataSources"], "competition_sources": up["competitionDataSources"],
-            "kernel_sources": up["kernelDataSources"], "model_sources": models,
+            "dataset_sources": datasets, "competition_sources": up["competitionDataSources"],
+            "kernel_sources": up["kernelDataSources"] + ([OP8_KERNEL] if op8 else []), "model_sources": models,
             "docker_image": up["dockerImage"], "machine_shape": up["machineShape"], "keywords": []}
     (out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
     sha = hashlib.sha256("".join(text(c) for c in cells if c["cell_type"] == "code").encode()).hexdigest()[:16]

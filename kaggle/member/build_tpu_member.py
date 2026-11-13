@@ -36,6 +36,14 @@ TPU = {   # kernel -> members trained one after another in one TPU session (one 
     "ntl-tpu-ll8q14": dict(session_hours=7.5, max_group=24, members=[
         dict(tag="ll8op1", hours=2.3, after_hours=0.5, args=EPOCHS + PW, **LLAMA8),
         dict(tag="q14op1", hours=3.0, after_hours=0.8, args=["--keep", "27", "--tp", "4"] + EPOCHS + PW, **QWEN14)]),
+    # Qwen3-14B-Base in the two-stage recipe of the public 0.684's n14b member (Nishant Dahal's lora_qwen3_14b, Nuri
+    # Dudak's q14 LoRA v4: keep 27, depths 2-27, max_len 447 with the end token 151643), so its adapters drop into that
+    # member's weighted mix; stage 1 on the current Open Pool (v16, 224k rows), weights split 4 ways (tensor parallel,
+    # placement fixed after ntl-tpu-ll8q14's failure). Alone in its session, so a failure shows up at once.
+    "ntl-tpu-q14v16": dict(session_hours=8.6, max_group=24, members=[
+        dict(tag="q14op16", hours=5.6, after_hours=1.4,
+             args=["--keep", "27", "--layers", "2,4,6,9,13,17,22,27", "--max-len", "447", "--eos-id", "151643",
+                   "--tp", "4", "--shapes", "q14"] + EPOCHS + PW, **QWEN14)]),
 }
 
 
@@ -43,19 +51,23 @@ CHECKS = {   # GPU reload checks of a TPU kernel's adapters (tpu_check_driver.py
     "ntl-tpu-op8-check": dict(kernel="omerfarukmerey/ntl-tpu-op8", members=[dict(keep=24, dirs=["op8v1", "op8v1_f0"], **QWEN8)]),
     "ntl-tpu-ll8q14-check": dict(kernel="omerfarukmerey/ntl-tpu-ll8q14", members=[
         dict(keep=24, dirs=["ll8op1", "ll8op1_f0"], **LLAMA8), dict(keep=27, dirs=["q14op1", "q14op1_f0"], **QWEN14)]),
+    # ll8op1's full-data adapter as uploaded for the 0.684 forks (ntl-tpu-ll8q14's version 1 ended in an error after it)
+    "ntl-ll8op1-check": dict(dataset="omerfarukmerey/ntl-ll8op1-full", members=[dict(keep=24, dirs=["ntl-ll8op1-full"], **LLAMA8)]),
 }
 
 
 def build_check(kernel):
     k = CHECKS[kernel]
     config = dict(members=[{x: m[x] for x in ("base_parts", "keep", "dirs")} for m in k["members"]])
-    intro = f"# {kernel}\n\nReload check of {k['kernel']}'s adapters through infer.py's merge path on the T4. Not a submission."
+    src = k.get("kernel") or k["dataset"]
+    intro = f"# {kernel}\n\nReload check of {src}'s adapters through infer.py's merge path on the T4. Not a submission."
     out = HERE / kernel
     out.mkdir(exist_ok=True)
     (out / f"{kernel}.ipynb").write_text(json.dumps(notebook(intro, [filled("tpu_check_driver.py", config)]), indent=1), encoding="utf-8")
     meta = {"id": f"omerfarukmerey/{kernel}", "title": kernel, "code_file": f"{kernel}.ipynb", "language": "python",
             "kernel_type": "notebook", "is_private": True, "enable_gpu": True, "enable_tpu": False,
-            "enable_internet": False, "keywords": [], "dataset_sources": [], "kernel_sources": [k["kernel"]],
+            "enable_internet": False, "keywords": [], "dataset_sources": [k["dataset"]] if "dataset" in k else [],
+            "kernel_sources": [k["kernel"]] if "kernel" in k else [],
             "competition_sources": ["name-that-llm"], "model_sources": sorted({m["model"] for m in k["members"]}),
             "machine_shape": "NvidiaTeslaT4"}
     (out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")

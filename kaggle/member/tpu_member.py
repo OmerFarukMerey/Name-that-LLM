@@ -39,6 +39,11 @@ T0 = time.time()
 S1_SHAPES = [(96, 216), (160, 144), (256, 96), (384, 48)]   # (tokens, rows); rows are multiples of 3 x 8 chips
 S2_SHAPES = [(96, 72), (160, 48), (256, 24), (384, 24)]
 EVAL_SHAPES = [(96, 128), (160, 96), (256, 64), (384, 32)]
+# Qwen3-14B with its weights split 4 ways (2 data shards): smaller batches and a 448 bucket for the two-stage recipe's
+# max_len 447 + end token (Nishant Dahal's lora_qwen3_14b / Nuri Dudak's q14 LoRA v4 read up to 447 tokens)
+SHAPES = {'base': (S1_SHAPES, S2_SHAPES, EVAL_SHAPES),
+          'q14': ([(96, 144), (160, 96), (256, 48), (448, 24)], [(96, 48), (160, 24), (256, 24), (448, 12)],
+                  [(96, 64), (160, 48), (256, 32), (448, 16)])}
 
 
 def log(*x):
@@ -67,6 +72,9 @@ def parse():
                    '** this, normalised to mean 1 within each label and clipped to [1/c, c] (0: every row weighs 1)')
     p.add_argument('--pool-weight-clip', type=float, default=4.0)
     p.add_argument('--shapes-scale', type=float, default=1.0, help='CPU smoke test: rows per shape x this (min 3)')
+    p.add_argument('--shapes', default='base', choices=sorted(SHAPES))
+    p.add_argument('--eos-id', type=int, default=-1, help='append this end token after truncating to max_len - 1 '
+                   '(the two-stage Qwen3-14B recipe: 151643); -1 keeps infer.py\'s tokenisation without one')
     a = p.parse_args()
     a.layers = [int(x) for x in a.layers.split(',')]; a.labels = json.loads(a.labels)
     a.ldrop = 0.0
@@ -139,11 +147,18 @@ def place(net, rt, tp):
     if rt.cpu or tp == 1:
         return net.to(rt.dev), 0
     n = 0
-    for name, p in net.named_parameters():
-        p.data = p.data.to(rt.dev)
-        spec = tp_spec(name, p)
-        if spec is not None:
-            rt.xs.mark_sharding(p, rt.mesh, spec); n += 1
+    # a CPU Parameter cannot take an XLA tensor as .data ("incompatible tensor type", ntl-tpu-ll8q14 version 1): each
+    # parameter is replaced in its module by a new one on the device; the optimizer is built after this
+    for mod_name, mod in net.named_modules():
+        for k, p in list(mod._parameters.items()):
+            if p is None:
+                continue
+            q = torch.nn.Parameter(p.data.to(rt.dev), requires_grad=p.requires_grad)
+            mod._parameters[k] = q
+            del p
+            spec = tp_spec(f'{mod_name}.{k}' if mod_name else k, q)
+            if spec is not None:
+                rt.xs.mark_sharding(q, rt.mesh, spec); n += 1
     for mod in net.modules():
         for k, b in list(mod._buffers.items()):
             if b is not None:
@@ -312,8 +327,10 @@ def main():
     a = parse()
     rt = Runtime(a.cpu, a.tp)
     torch.manual_seed(a.seed); np.random.seed(a.seed)
-    s1_shapes, s2_shapes, ev_shapes = (S1_SHAPES, S2_SHAPES, EVAL_SHAPES) if a.shapes_scale == 1 else \
-        (scaled(S1_SHAPES, a.shapes_scale), scaled(S2_SHAPES, a.shapes_scale), scaled(EVAL_SHAPES, a.shapes_scale))
+    S1, S2, EV = SHAPES[a.shapes]
+    s1_shapes, s2_shapes, ev_shapes = (S1, S2, EV) if a.shapes_scale == 1 else \
+        (scaled(S1, a.shapes_scale), scaled(S2, a.shapes_scale), scaled(EV, a.shapes_scale))
+    assert max(L for L, _ in S1) >= a.max_len, ('the longest bucket must hold max_len', a.max_len)
     if not a.cpu:
         assert all(R % (3 * rt.dp) == 0 for _, R in s1_shapes + s2_shapes) and all(R % rt.dp == 0 for _, R in ev_shapes)
     pool = pd.read_parquet(a.pool); tr = pd.read_parquet(a.train)
@@ -330,8 +347,12 @@ def main():
         log('tensor-parallel weights:', n_tp)
     params = [p for p in net.parameters() if p.requires_grad]
     log(f'{rt.n} devices, LoRA params {n_lora}, checkpointed layers {n_ck}, pool {len(pool)}, official {len(tr)}')
-    enc_p = W.encode(tok, pool.text.astype(str).tolist(), a.max_len)
-    enc_t = W.encode(tok, tr.text.astype(str).tolist(), a.max_len)
+    if a.eos_id >= 0:   # the two-stage recipe: truncate to max_len - 1, then the end token
+        enc_p = [x + [a.eos_id] for x in W.encode(tok, pool.text.astype(str).tolist(), a.max_len - 1)]
+        enc_t = [x + [a.eos_id] for x in W.encode(tok, tr.text.astype(str).tolist(), a.max_len - 1)]
+    else:
+        enc_p = W.encode(tok, pool.text.astype(str).tolist(), a.max_len)
+        enc_t = W.encode(tok, tr.text.astype(str).tolist(), a.max_len)
     log('tokenised; pool tokens', int(sum(len(x) for x in enc_p)))
     counts = np.bincount(yp, minlength=len(a.labels)).astype(float)
     cw = torch.tensor(len(yp) / (len(a.labels) * np.maximum(counts, 1)), dtype=torch.float32).to(rt.dev)
@@ -344,7 +365,8 @@ def main():
     for e in range(int(math.ceil(a.epochs))):
         ep = buckets(W.triplets(pool.prompt_key.astype(str).values, np.arange(len(pool)), rng), enc_p, s1_shapes, rng)
         batches += ep[:int(len(ep) * min(1.0, a.epochs - e))]
-    base_meta = dict(base=a.base, keep=a.keep, layers=a.layers, max_len=a.max_len, labels=a.labels, r=a.r, alpha=a.alpha,
+    base_meta = dict(base=a.base, keep=a.keep, layers=a.layers, max_len=a.max_len, eos_id=a.eos_id if a.eos_id >= 0 else None,
+                     labels=a.labels, r=a.r, alpha=a.alpha,
                      device='cpu' if a.cpu else f'tpu x{rt.n} spmd', dtype='float32' if a.cpu else 'bfloat16',
                      pool_rows=len(pool), seed=a.seed, pool_weight=a.pool_weight, pool_weight_clip=a.pool_weight_clip)
     log(f'stage 1: {len(batches)} batches over {a.epochs} epochs, shapes {s1_shapes}')

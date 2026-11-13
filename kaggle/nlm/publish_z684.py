@@ -9,7 +9,7 @@ import json
 import sys
 from pathlib import Path
 
-from build_z684 import URL as Z684, VARIANTS
+from build_z684 import EXTRA, URL as Z684, VARIANTS
 from build_e683 import URL as E683
 from publish_e683 import ATLAS9, CHEN, K, LV681, OQ4, OURS682, pct
 from publish_l681 import ASSETS, text
@@ -63,6 +63,27 @@ def changes(oq, w, gsq, neg="0", sib="0.0", typo="0", wemm="0"):
     return out
 
 
+def extra_changes(name):
+    out = []
+    x = EXTRA.get(name, {})
+    if "llop" in x:
+        out.append((f"Llama Adapter {pct(x['llop'])}", f"**our own Llama-3.1-8B LoRA24 adapter (ll8op1) at {pct(x['llop'])} of the "
+                    "Llama member's adapter weight**, next to the member's six v5 adapters. We trained it on Kaggle's free TPU "
+                    "v5e-8 with the member's own recipe (24 layers, eight read-out depths, plain and prompt-centred heads): "
+                    "stage 1 on crtproduction's Open Pool (211k rows), stage 2 on the official rows; out-of-fold balanced "
+                    "accuracy 0.615. It is checked through this notebook's merge path on a T4 (argmax agreement 1.000)."))
+    if "op8" in x:
+        out.append((f"Qwen8 Adapter {pct(x['op8'])}", f"**our own Qwen3-8B LoRA24 adapter (op8v1) at {pct(x['op8'])} of the Qwen3-8B "
+                    "member's adapter weight**, placed first so the member's Gaussian head still fits on its own full-data "
+                    "adapter; trained the same way on the free TPU (out-of-fold 0.631 against 0.615 for the member's v5 "
+                    "adapters)."))
+    return out
+
+
+def all_changes(name):
+    return changes(*VARIANTS[name]) + extra_changes(name)
+
+
 def row(label, oq, w, gsq, score):
     return f"| {label} | {oq} | {w} | {gsq} | {score} |\n"
 
@@ -73,12 +94,12 @@ def build(name, score, scored, title=None):
     built = json.loads((HERE / name / f"{name}.ipynb").read_text(encoding="utf-8"))
     codes = [text(c) for c in nb["cells"] if c["cell_type"] == "code"]
     assert codes == [text(c) for c in built["cells"] if c["cell_type"] == "code"], "scored code differs from the build"
-    ch = changes(oq, w, gsq, *post)
+    ch = changes(oq, w, gsq, *post) + extra_changes(name)
     assert ch
     title = title or f"{score} | 0.684 + " + " + ".join(k for k, _ in ch)
     assert 5 <= len(title) <= 50, (title, len(title))
     mix = lambda q: "v4 only" if float(q) == 1 else f"{pct(q)} / {pct(1 - float(q))}"
-    sibrows = "".join(row(f"our fork: {', '.join(k for k, _ in changes(*VARIANTS[v]))}", mix(VARIANTS[v][0]), VARIANTS[v][1],
+    sibrows = "".join(row(f"our fork: {', '.join(k for k, _ in all_changes(v))}", mix(VARIANTS[v][0]), VARIANTS[v][1],
                           pct(VARIANTS[v][2]), s)
                       for v, s in sorted(RESULTS.items(), key=lambda x: (x[1], x[0]), reverse=True) if v != name)
     head = f"""# {title}

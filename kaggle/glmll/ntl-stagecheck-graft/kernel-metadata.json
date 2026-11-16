@@ -1,0 +1,26 @@
+{
+  "id": "omerfarukmerey/ntl-stagecheck-graft",
+  "title": "ntl-stagecheck-graft",
+  "code_file": "ntl-stagecheck-graft.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "dataset_sources": [
+    "jamesliebel/glm53-iq3xxs-segs-a-mirror",
+    "jamesliebel/glm53-iq3xxs-segs-b-mirror",
+    "jamesliebel/glm53-flash-iq3xxs-segs-mirror"
+  ],
+  "competition_sources": [
+    "name-that-llm"
+  ],
+  "kernel_sources": [
+    "estopadilla/ntl-glm-likelihood-train"
+  ],
+  "model_sources": [],
+  "docker_image": "gcr.io/kaggle-private-byod/python@sha256:de153e6d303881930c51286216393d56f56b26458d0661350305a1e8144eea01",
+  "machine_shape": "NvidiaTeslaT4",
+  "keywords": []
+}

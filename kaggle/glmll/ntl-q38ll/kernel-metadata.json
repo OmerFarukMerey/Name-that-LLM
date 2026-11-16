@@ -1,0 +1,22 @@
+{
+  "id": "omerfarukmerey/ntl-q38ll",
+  "title": "ntl-q38ll",
+  "code_file": "ntl-q38ll.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "dataset_sources": [
+    "lightningv08/ntl-olmo2-native24-final-inference-assets"
+  ],
+  "competition_sources": [
+    "name-that-llm"
+  ],
+  "kernel_sources": [],
+  "model_sources": [],
+  "docker_image": "gcr.io/kaggle-private-byod/python@sha256:2757e0c7d1e0a9cb43da657b97e223c321a98f5014bdf64f44f2f6b083ad2b2f",
+  "machine_shape": "NvidiaTeslaT4",
+  "keywords": []
+}

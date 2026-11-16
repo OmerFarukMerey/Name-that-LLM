@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 from build_e683 import URL as E683
-from build_g692 import URL as G692, VARIANTS
+from build_g692 import GSQ, URL as G692, VARIANTS, knobs
 from publish_e683 import CHEN, K, OURS682
 from publish_l681 import ASSETS, text
 
@@ -21,12 +21,22 @@ ALEX = f"{K}/code/alexchilton/name-that-llm-0-684-all-public-what-failed"
 HELIOS = f"{K}/code/heliosli/name-that-llm-lv683-a15"
 LV = f"{K}/code/lightningv08/0-681-qwen3-embedding-lora-qwen3-8-27b"
 JL = f"{K}/datasets/jamesliebel/glm53-iq3xxs-segs-a-mirror"
+SANPIER = f"{K}/code/sanpier/0-693-real-glm-5-3-glm-5-3-flash-likelihood"
+OZER = f"{K}/code/ozertuu/0-693-sota-real-glm-5-3-likelihood-on-2xt4"
 # public LB of each build_g692.py fork, filled in as they score
-RESULTS = {}
+RESULTS = {"ntl-g693-sib": "0.691", "ntl-g693-negsib": "0.685", "ntl-g693-g0-sib": "0.693", "ntl-g693-g0": "0.685",
+           "ntl-g692-sib": "0.690"}   # public LB, 11-14 (none above the 0.694)
 
 
-def changes(neg, sib):
+def changes(neg, sib, gsq=GSQ):
     out = []
+    if gsq == 0:
+        out.append(("GSQ Off", "**the Qwen3.8-27B GSQ classifier switched off** (share 0.03 -> 0): its 64-layer pass on both "
+                    "T4s is skipped. The GLM stage scores as many of the most GLM-like texts as fit in the time left before "
+                    "8.7 h, so it gets that GPU time; on the public runs GSQ at 3% and at 12% score the same (0.692 vs 0.689 / 0.693)."))
+    elif gsq != GSQ:
+        out.append((f"GSQ {gsq:.0%}", f"**GSQ-27B share {gsq}**, estopadilla's own setting, which the public 0.693 copies "
+                    "run unchanged (the 0.692 lowered it to 0.03)."))
     if sib:
         out.append(("Sibling Re-rank", f"**the public [0.683]({E683})'s sibling-style re-ranking on the stack's final logits, "
                     "before the GLM stage reads them** (omkarpattanaik123's `sibling_style.py` and his `ensemble.py` block, "
@@ -42,22 +52,24 @@ def changes(neg, sib):
 
 
 def build(name, score, scored, title=None):
-    neg, sib = VARIANTS[name]
+    neg, sib, gsq = knobs(name)
     nb = json.loads(Path(scored).read_text(encoding="utf-8"))
     built = json.loads((HERE / name / f"{name}.ipynb").read_text(encoding="utf-8"))
     codes = [text(c) for c in nb["cells"] if c["cell_type"] == "code"]
     assert codes == [text(c) for c in built["cells"] if c["cell_type"] == "code"], "scored code differs from the build"
-    ch = changes(neg, sib)
-    short = {"Sibling Re-rank": "Sibling", "Typography Rules": "Typo Rules"}
+    ch = changes(neg, sib, gsq)
+    short = {"Sibling Re-rank": "Sibling", "Typography Rules": "Typo Rules", "GSQ Off": "No GSQ"}
     title = title or f"{score} | GLM Likelihood + " + " + ".join(short.get(k, k) for k, _ in ch)
     assert 5 <= len(title) <= 50, (title, len(title))
     rows = "".join(f"| our fork: {', '.join(k for k, _ in changes(*VARIANTS[v]))} | {s} |\n"
                    for v, s in sorted(RESULTS.items(), key=lambda x: (x[1], x[0]), reverse=True) if v != name)
+    cpu = [k for k, _ in ch if k in ("Sibling Re-rank", "Typography Rules")]
+    gsq_txt = "(switched off here)" if gsq == 0 else f"at {gsq:.0%}"
     head = f"""# {title}
 
 **Public LB {score}** · the public 0.692 with {", ".join(k for k, _ in ch)} · T4 ×2 · internet off · every input is public
 
-**In short.** This is mathleteutd's [GLM-5.3 Likelihood + GSQ 3%]({G692}) (version 3, public 0.692), run unchanged except for the step{'s' if len(ch) > 1 else ''} below, both taken from the public [0.683]({E683}). They run on the CPU in seconds, so the GLM likelihood stage keeps all of its time. Nothing is retrained.
+**In short.** This is mathleteutd's [GLM-5.3 Likelihood + GSQ 3%]({G692}) (version 3, public 0.692), run unchanged except for the change{'s' if len(ch) > 1 else ''} below.{(' The ' + ' and '.join(c.lower() for c in cpu) + (' come' if len(cpu) > 1 else ' comes') + ' from the public [0.683](' + E683 + ') and run' + ('' if len(cpu) > 1 else 's') + ' on the CPU in seconds, so the GLM likelihood stage keeps all of its time.') if cpu else ''} Nothing is retrained.
 
 ## What changed
 
@@ -72,20 +84,20 @@ Every other weight, model and correction is the 0.692's. The code cells below ar
 | [our 0.682]({OURS682}): lightningv08's 0.681 + GSQ 12% + Sinkhorn target mix 0.50 | 0.682 |
 | [estopadilla's 0.689]({ESTO}): alexchilton's all-public stack (our 0.682 recipe) + the GLM likelihood stage | 0.689 |
 | [mathleteutd's 0.692]({G692}): the 0.689 with GSQ 12% -> 3% | 0.692 |
+| [sanpier's]({SANPIER}) and [ozertuu's]({OZER}) copies of the 0.689's code (GSQ 12%), no other change | 0.693 |
 {rows}| **this notebook** | **{score}** |
 
 Each row is one submission, so read single steps of 0.001 with care: the public board scores only part of the test set.
 
 ## How it works
 
-1. **The stack** (lightningv08's [0.681]({LV}) line, as alexchilton runs it): LoRA24 read-outs of Qwen3-14B, Qwen3-8B, Llama-3.1-8B, Nishant Dahal's two-stage Qwen3-14B and Qwen2.5-14B, a DeBERTa encoder, the Open Pool text heads, the complementary stack, ATLAS on low-margin rows, the Qwen3.8-27B GSQ classifier at 3%, and CHEN Han's five-fold Qwen3-Embedding-8B expert at 40%; per fold soft Sinkhorn balancing (target mix 0.50) and typography, then the fold mean.
-2. **This notebook's steps**{' (above)' if ch else ''}: {"; ".join(k for k, _ in ch)} on those logits.
-3. **The GLM stage** (estopadilla): the texts are ranked by the stack's probability of glm-5.3 + glm-5.3-flash; as many top texts as the time left allows (at most 30%) are scored under the real GLM-5.3-Flash and GLM-5.3 (jamesliebel's public IQ3_XXS GGUF segments, run layer by layer by estopadilla's `ntl-segrun`); a small logistic head trained on those likelihood features ([his training notebook]({ESTO_TRAIN})) is blended into the stack's logits on the scored texts only.
+1. **The stack** (lightningv08's [0.681]({LV}) line, as alexchilton runs it): LoRA24 read-outs of Qwen3-14B, Qwen3-8B, Llama-3.1-8B, Nishant Dahal's two-stage Qwen3-14B and Qwen2.5-14B, a DeBERTa encoder, the Open Pool text heads, the complementary stack, ATLAS on low-margin rows, the Qwen3.8-27B GSQ classifier {gsq_txt}, and CHEN Han's five-fold Qwen3-Embedding-8B expert at 40%; per fold soft Sinkhorn balancing (target mix 0.50) and typography, then the fold mean.
+{('2. **This notebook\'s steps** (above): ' + '; '.join(cpu) + ' on those logits.' + chr(10)) if cpu else ''}{'3' if cpu else '2'}. **The GLM stage** (estopadilla): the texts are ranked by the stack's probability of glm-5.3 + glm-5.3-flash; as many top texts as the time left allows (at most 30%) are scored under the real GLM-5.3-Flash and GLM-5.3 (jamesliebel's public IQ3_XXS GGUF segments, run layer by layer by estopadilla's `ntl-segrun`); a small logistic head trained on those likelihood features ([his training notebook]({ESTO_TRAIN})) is blended into the stack's logits on the scored texts only.
 
 ## Credits and licences
 
-* **mathleteutd**: the [0.692]({G692}) this one runs (GSQ 3%). **estopadilla (José Padilla)**: the [GLM likelihood stage]({ESTO}), `ntl-segrun` and the trained head. **jamesliebel**: the public [GLM-5.3 / GLM-5.3-Flash GGUF segment mirrors]({JL}).
-* **omkarpattanaik123 (Omkar Pattanaik)**: the sibling-style re-ranking and typographic negative evidence ported here from the [0.683]({E683}).
+* **mathleteutd**: the [0.692]({G692}) this one runs. sanpier and ozertuu: the [0.693]({SANPIER}) [reruns]({OZER}). **estopadilla (José Padilla)**: the [GLM likelihood stage]({ESTO}), `ntl-segrun` and the trained head. **jamesliebel**: the public [GLM-5.3 / GLM-5.3-Flash GGUF segment mirrors]({JL}).
+* **omkarpattanaik123 (Omkar Pattanaik)**: the sibling-style re-ranking and typographic negative evidence of the [0.683]({E683}).
 * **alexchilton**: the [all-public stack]({ALEX}); **heliosli**: the [mount shim]({HELIOS}); **lightningv08 (Vladislav Lavrentev)**: the pipeline, the Qwen3.8-27B GSQ3 classifier and the [asset dataset]({ASSETS}); **CHEN Han**: the native expert ([.679]({CHEN})); the model, adapter and data authors named in the cells below; crtproduction for the Open Pool (CC BY-SA 4.0).
 * **Models.** GLM-5.3 / GLM-5.3-Flash: Z.ai, under their own licence. Qwen models: Alibaba Qwen team, under their own licences. **Built with Llama.** Llama 3.1 is licensed under the [Llama 3.1 Community License](https://www.llama.com/llama3_1/license/) (Copyright © Meta Platforms, Inc.) and its [Acceptable Use Policy](https://www.llama.com/llama3_1/use-policy/). Each input keeps its own licence.
 

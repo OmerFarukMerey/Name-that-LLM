@@ -197,3 +197,568 @@ numbers in this table are directly comparable. Outputs go to `outputs/expNNN_<sl
 - 2026-11-13 06:04 UTC: the 11-13 five scored (06:03 UTC): z684-sib 0.683, -neg-sib 0.683, -typo 0.681, -typo-sib 0.681, -wemm07 0.678. Every port of the 0.683's parts onto the 0.684 loses (re-ranker -0.001, typography step -0.003, WeMM 7% -0.006), as every knob moved on either public top did: 25 submissions on the 0.683 / 0.684 lines, best 0.683, none above 0.684. Both tops behave like selected peaks of the public split; cheap edits sample below them. What remains is new signal: source-model likelihood (GLM-5.3-Flash UD-IQ3_XXS GGUF, 120 GB, layer streaming), new members (TPU v5e-8 20 h / week unused), or more lottery draws.
 - 2026-11-13 06:49 UTC: new-member track (user's choice 11-13: train a new member). (1) kaggle/member/tpu_member.py: place() now replaces each parameter by a device copy (ntl-tpu-ll8q14 v1 died at `p.data = p.data.to(xla)`: incompatible tensor type), --eos-id (truncate to max_len - 1, then the end token) and --shapes q14 (448 bucket, 2 data shards x 4-way tensor parallel); CPU smoke test on a tiny random Qwen3 + word-level tokenizer passed (448 bucket, eos in meta, stage 1 + jobs 0 / full). ntl-tpu-q14v16 pushed (Qwen3-14B-Base, the n14b recipe: keep 27, depths 2-27, max_len 447, eos 151643; Open Pool v16 224k rows, match-weighted; 8.6 h session; TPU 0 / 20 h used) - queued. (2) ntl-tpu-ll8q14 v1's first member ll8op1 (Llama-3.1-8B, pool v12 211k rows 1.48 epochs + official; OOF 0.6146; s1 alone 0.595) survived: full-data adapter uploaded as private dataset omerfarukmerey/ntl-ll8op1-full (Kaggle unzipped it to the root, so the forks find it by the dataset name); ntl-ll8op1-check on a T4 through the merge path: 168 LoRA pairs, argmax agreement 1.000, in-sample 0.950, CHECK PASS. build_z684.py: ll25 / ll40 (ll8op1 inside the ll8v5 member at 25 / 40%), op25 / op40 (op8v1, OOF 0.6305, first in the q8v5 member so the Gaussian head keeps q8v5's full adapter), ll25-op25.
 - 2026-11-13 20:09 UTC: Code tab 19:55 UTC 11-13: new top **0.692** = mathleteutd/name-that-llm-glm-5-3-likelihood-gsq-3 (latest version 3; = estopadilla's 0.689 + mount shim + GSQ 0.12 -> 0.03), 0.689 = estopadilla/0-689-real-glm-5-3-likelihood-on-2xt4 (alexchilton's all-public stack = our 0.682 recipe, V15 + target mix 0.50 + GSQ 0.12, plus his 'V1' stage), 0.687 pengyipeng1/0-687-it-actually-works. The V1 stage (payload decoded statically: v1_stage.py, run_pipeline.py, segio.py, features.py, ll_model.json): after the stack writes final-logits.npz (~6.7 h on 4,000 texts) it ranks the test by P(glm-5.3) + P(glm-5.3-flash), scores the top prefix that fits the time left (<= 30%) under the real GLM-5.3-Flash and GLM-5.3 (jamesliebel's IQ3_XXS GGUF segment mirrors, run by estopadilla's compiled ntl-segrun with prefetch), turns the likelihoods into 18-class log-probs with a logistic head (estopadilla/ntl-glm-likelihood-train) and blends them into the stack's logits (entropy-matched temperature) on the scored texts; falls back to the stack when time runs out; OOF: 15% coverage +0.030, 20% +0.0315, 30% +0.032. Built kaggle/nlm/build_g692.py (upstream sha 517c5733bb81854e): -negsib, -sib, -neg (the 0.683's -15 rules in core_math.finalize and its sibling-style block right before final-logits.npz, CPU only); commits OK (inputs: 33 roots + 101 paths, missing []; V1 checks OK: binary sha256 + CUDA libs, 6 + 19 segments, tokenizer); publish_g692.py ready. 11-14 slate re-armed: g692-negsib, g692-sib, g692-neg, z684-ll25-op25, z684-ll25. ntl-tpu-q14v16 still QUEUED (~10 h). Share needs > 0.692.
+- 2026-11-13 23:00 UTC: Code tab via API at 22:50 UTC 11-13 (browser extension not connected, so the scores come from the titles): two new **0.693**s, sanpier/0-693-real-glm-5-3-glm-5-3-flash-likelihood (version 4) and ozertuu/0-693-sota-real-glm-5-3-likelihood-on-2xt4 ("0.693+", version 94 of a renamed notebook); dhananjayk2609/name-that-llm-style-fingerprints-llm-ensemble and evgendvorkin's EDA rank between them by score. Static diffs (scratchpad celldiff.py / tokdiff.py): sanpier's and ozertuu's code cells equal estopadilla's version 6, which equals his scored version 4 (the 0.689); only mount paths differ (no shim; ozertuu: his own resolve_p), GSQ stays 0.12. dhananjayk = mathleteutd's 0.692 (GSQ 0.03, shim) + EDA cells that skip on the rerun; evgendvorkin = EDA + estopadilla's pipeline. **So one pipeline scored 0.689, 0.692 and 0.693 (x2) in different runs:** the spread is run noise, and GSQ 3% vs 12% is not a lever. The GLM stage (v1_stage.py) scores the top texts by P(glm-5.3) + P(glm-5.3-flash) that fit before 8.7 h (cost model 1350 s + 0.0113 s/row Flash, 1820 s + 0.0199 s/row GLM-5.3, rows = min(chars x 0.235 x 1.05, 160) + 13 per text, at most 30%); estopadilla's page puts the stack at ~6.0 h with the parallel 8B lanes, i.e. ~25% coverage, where his OOF curve is flat (10% +0.020, 15% +0.030, 20% +0.032, 30% +0.032). estopadilla/ntl-glm-likelihood-train only outputs the compiled ntl-segrun and libraries (no train features), so the head cannot be retuned offline. User asked 22:55 UTC to cancel tonight's slate (bl0160goq stopped before it submitted anything) and to build on the new tops instead: the z684 member forks (no GLM stage, ceiling ~0.684) are dropped; build_g692.py gains a GSQ knob (0.03 default, existing builds unchanged): ntl-g693-sib (GSQ 0.12 + re-ranker, ac386aba), -negsib (0e3187d4), -g0-sib (GSQ off: the 27B two-T4 pass is skipped by ensemble.py's `if gsq_share > 0`, its time goes to the GLM stage; 99cd8ad7), -g0 (fd47e1f8). Slate for 00:00:30 UTC 11-14: g693-sib, g693-negsib, g693-g0-sib, g693-g0, g692-sib. Bar to publish: > 0.693.
+
+### 2026-11-14 00:43 UTC: exp050, refitting the GLM likelihood head (started)
+
+- New public top **0.694** (lightningv08, V42; the bar for sharing is now > 0.694). Diffed against estopadilla's 0.689 V4,
+  it is the same pipeline with: the V1 stage inlined and given a fixed allocation (top texts by P(glm-5.3) +
+  P(glm-5.3-flash) up to 130k token rows, at most 20%, no deadline), GSQ 0.06 and Sinkhorn target mix 0.35. V39 to V42 step
+  GSQ 0.02, 0.12, 0.06 and then target mix 0.35, so these are knob sweeps by submission. Which version scored 0.694 is
+  unknown (the browser extension is not connected). The **likelihood head (ll_model.json) is byte-for-byte estopadilla's**
+  in every 0.689 to 0.694 notebook: the stage is shared, and nobody has refit it.
+- exp050: kernels ntl-glmll-flash / ntl-glmll-glm53 (kaggle/glmll/build_glmll.py) run estopadilla's own run_pipeline.py
+  (the 0.689's V1 payload, unchanged, in kaggle/glmll/v1src) on all 2,699 train texts, cut at 512 tokens (430,704 rows,
+  longest 394 tokens, so this is the full text). Free GPU quota, about 1.7 h and 2.9 h. experiments/exp050_glm_ll_head.py:
+  1. rebuild his 160-token features and check that his recipe reproduces his scaler and coefficients;
+  2. out of fold (prompt folds), blend into a stand-in stack the way v1_stage.py does (exp015 core + Sinkhorn, tempered to
+     his entropy_ref), sweeping C, W, cover and cut (160/256/320/512).
+- kaggle/nlm/build_lv694.py: forks of the 0.694 V42 with a refit head (outputs/exp050_glm_ll_head/heads/<name>.json)
+  and the sib/neg knobs, for the 11-15 slate.
+
+### 2026-11-14 03:56 UTC: exp050 results (head refit, stage error analysis)
+
+- Both GLM kernels finished (flash 5,749 s, glm53 11,121 s). Our 160-token features reproduce his train features: the
+  24 flash columns match his stored scaler within 0.0002 sd, the refit with his recipe gives coefficient correlation
+  0.994. exp050 now uses our own transcription of features.py (kaggle/glmll/extra_features.py; the downloaded file is
+  never run locally).
+- Out of fold on the stand-in stack (0.6465): **his recipe +0.027** (cover 0.20). Refits vs his recipe (paired prompt
+  bootstrap, cover 0.15/0.20/0.25): every C at W 1 is within +-0.001; **W 1.25 at C 0.05 +0.0018/+0.0025/+0.0033**
+  (lower bound ~0 at 0.20); higher W helps at every C (W 0.75 always loses); focus weighting, cut 512 and lp bins add
+  nothing; per-token flash - glm53 contrasts (pd_std, quantiles, rank wins; needs a stage change) at W 1.5
+  +0.0021/+0.0043/+0.0043 (intervals cross 0).
+- The stage is saturated in cover: 88% of the GLM rows lie in the top 20% by GLM mass, cover 0.30 adds +0.001. It fixes
+  GLM recall (glm-5.3 0.29 -> 0.55, flash 0.40 -> 0.58); the GLM-5.3 / Flash swap is small afterwards (6-7 rows each
+  way). **The remaining errors are GLM <-> Claude** (~50 of 300 GLM rows go to claude-fable-5 / opus-5 / sonnet-5, ~30
+  false GLM calls are Claude or kimi-k3): Claude text is likely under GLM too.
+- So the next signal is a neutral reference likelihood (Binoculars-style ratio): kernel ntl-refll
+  (kaggle/glmll/build_refll.py) scores train under Qwen3-4B-Base and Qwen3-8B-Base (attached to the 0.694 offline);
+  exp050 `ref` mode tests them next to his 54 columns. build_lv694.py heads may now declare extra evidence (pair
+  contrasts, a reference model); the stage computes it with extra_features.py and falls back to his head on any
+  failure; a local simulation of that path rebuilds the offline columns exactly (max gap 7e-15). The commit never runs
+  the stage, so kaggle/glmll/build_stagecheck.py runs a variant's stage end to end on 120 train rows on Kaggle.
+
+### 2026-11-14 04:06 UTC: exp050, reference model and boosted trees
+
+- ntl-refll: Qwen3-4B-Base on all train texts (221 s, no non-finite values); the 8B pass ran out of GPU memory after
+  the 4B (not rerun). exp050 `ref`: the 4B's 24 features next to his 54 raise the head alone from 0.19 to 0.24, but
+  in the blend they add no more than the other refits (best +0.0036, intervals cross 0): the stand-in stack already
+  holds what a Qwen likelihood adds. Dropped.
+- exp050 `gbm` (outputs/exp050_glm_ll_head/gbm.log): boosted trees (HistGradientBoosting, depth 2, lr 0.1, 150 rounds,
+  L2 1) on his 54 columns + the 12 per-token pair contrasts, probability-averaged 50/50 with his recipe: **vs his recipe
+  +0.0037 / +0.0063 [+0.0019, +0.0108] / +0.0062 [+0.0015, +0.0111]** at cover 0.15 / 0.20 / 0.25 (W 1); trees on his
+  54 alone +0.0019 / +0.0040 / +0.0032; with the 4B too +0.0026 / +0.0047 / +0.0040. Robust across depth 2-4 and
+  learning rates (+0.003 to +0.007, scratchpad sweep); the best of ~80 configurations tried, so expect less.
+- Head gbmpair (0.68 MB JSON, trees exported by extra_features.gbm_export, evaluated by gbm_logp: equal to sklearn
+  within 5e-7) -> **ntl-lv694-gbm** (member_logp patched to average in the trees; falls back to his head on any
+  failure). Local simulation: identical arithmetic; 2 of 2,699 train rows flip only because the features CSV
+  round-trip moves values by 7e-15 at train split points (none off them). Stage checks on Kaggle (120 train rows, end
+  to end): ntl-stagecheck (pair head), ntl-stagecheck-gbm.
+
+### 2026-11-14 04:39 UTC: stage check (ntl-stagecheck, pair head) and test-time feature noise
+
+- ntl-stagecheck ran ntl-lv694-pair's stage end to end on 120 train rows (flash 767 s, glm53 1,285 s): extra_done
+  with the pair block, then his sanity guard stopped it (38.3% changed > 25%), as it must here: the check scores only
+  the 120 most GLM-like rows (the real guard counts all test rows; every head changes 6-9% of all rows on the stand-in
+  at cover 0.20-0.30). From the run's own features CSVs and npz, our code reproduces the report exactly (changed
+  0.3833, member agreement 0.4167, T' 4.8116), so the patched stage computes what exp050 computes.
+- But the test-style GLM scores differ from our train run's on the same texts: per-token |log p| gap median 0.013
+  (flash) / 0.096 (glm53), up to 5.6 / 20.8 nats; glm53 z_mean up to 13 sd on a row (both runs f32 state; GLM-5.3 and
+  Flash are mixture-of-experts, so batch-dependent numerics can flip expert routing). 110 of 120 blend predictions
+  match the train-run expectation. The same noise sits between estopadilla's train run and every test run.
+- Robustness on those 120 hard rows (stack alone 59 right), out-of-fold heads fed train-run vs test-run features:
+  his recipe 87 / 87, w125 91 / 88, pair150 91 / 92, gbm 90 / 88. The noise hits every head alike; no refit is fragile.
+- 2026-11-14 04:42 UTC: ntl-stagecheck-gbm (gbm head, stage end to end): the same pass, then the guard (32.5% of 120 = the 39
+  changes built offline). From its features, our code reproduces the report exactly (changed 0.325, member agreement,
+  T') with the tree mix; 114 of 120 rows match the train-run expectation. The two Kaggle runs of the same 120 texts are
+  bit-for-bit identical, so the GLM noise is deterministic per batch composition, not random.
+- ntl-lv694-w125 v1 failed cell 8's input check: V42 names ten datasets by the flat path /kaggle/input/<slug>, and an
+  API-pushed kernel mounts every input at /kaggle/input/datasets/<owner>/<slug>. build_lv694.py now maps those literals
+  (cells 8 and 18 only; the stage cells have none, so both stage checks still apply). Pushed: ntl-lv694-w125 v2,
+  ntl-lv694-gbm v1.
+- 2026-11-14 04:57 UTC: commits COMPLETE (missing [], 25 segments verified, patched stage imported): ntl-lv694-w125 v2,
+  -gbm v1, -pair v1, -gbm-sib v1, -gbm-neg v1 (-gbm-negsib built, not committed). 11-15 slate armed for 00:00:30 UTC
+  (kaggle/tools/midnight_submit_lv694.sh, a copy of midnight_submit_versions.sh with their messages; the original is
+  still polling 11-14's scores): gbm, gbm-sib, pair, w125, gbm-neg. Re-armed if 11-14's sib / neg results say otherwise.
+
+### 2026-11-14 08:23 UTC: LB of the 0.692 forks (11-14) and the new public copies of the 0.694
+
+- 11-14 public LB (build_g692.py, mathleteutd's 0.692 base, time-boxed GLM stage): g693-sib (GSQ 0.12 + sibling
+  re-rank) 0.691, g693-negsib 0.685, **g693-g0-sib (GSQ off + re-rank) 0.693**, g693-g0 (GSQ off) 0.685, g692-sib
+  (GSQ 0.03 + re-rank) 0.690. Nothing above the 0.694. The 0.683's typographic rules cost 0.006 (negsib vs sib), so
+  ntl-lv694-gbm-neg leaves the 11-15 slate. The re-rank is +0.008 at GSQ off but -0.002 at 0.03 / 0.12 against the public
+  unre-ranked runs. On this line identical code scores 0.689 / 0.693 / 0.694, because the stage covers what fits
+  before 8.7 h, so single differences under ~0.005 are noise.
+- New public notebooks between the 0.694 and the 0.693 (score-sorted Code tab, API order; scores hidden). None adds a
+  method; they only change the GSQ share:
+  - heliosli/name-that-llm-lv683-a15 v22: lightningv08's V40 (0.694) with GSQ 0.12 -> 0.03.
+  - dhananjayk2609/...-style-fingerprints-llm-ensemble v10: estopadilla's 0.689 with GSQ off, so its GLM stage gets
+    more of the 8.7 h budget. It cites Areeb Ali's tests on the 0.684 code: GSQ 3% / 6% / 12% scored 0.684 / 0.682 / 0.681.
+  - lightningv08 V47: GSQ 0.12 and Sinkhorn target mix 0.50 (V42: 0.06 / 0.35).
+  V42's stage covers a fixed set (130k token rows, at most 20%) with no deadline, so on our forks GSQ changes only the
+  stack blend.
+- build_lv694.py gains a GSQ knob (assert in ensemble.py + the last config cell; 0 takes the pipeline's own
+  gsq_share == 0 branch). New variants: ntl-lv694-gbm-g3 (GSQ 0.03), -gbm-g0, -gbm-g0sib (GSQ off + re-rank), all
+  with the gbm head. The six earlier variants rebuild byte for byte.
+
+### 2026-11-14 08:29 UTC: 11-15 slate re-armed; exp051 (head trained at the stage's 160-token cut)
+
+- ntl-lv694-gbm-g3 v1 and -gbm-g0sib v1 committed (missing [], same outputs as the checked -gbm-sib commit). The 11-15
+  slate is re-armed (kaggle/tools/midnight_submit_lv694.sh, 00:00:30 UTC): gbm, gbm-g0sib, gbm-g3, gbm-sib, pair. w125
+  and gbm-neg are dropped (the typographic rules lost 0.006 on 11-14).
+- Train/test mismatch in every public GLM head: the train runs (estopadilla's and our ntl-glmll-*) score whole texts
+  (cut 512, so decodes of 8 texts are up to 8 x 400 rows). The stage cuts at 160 (decodes mostly 8 x 173 rows). On the
+  120 stage-check texts, GLM-5.3's stage scores differ from our train run by a median 0.096 nats per token, with only 1%
+  of tokens identical; feature |gap|/sd has a median of 0.08 and a max of 13. Flash differs by 0.013. If the gap comes
+  from decode shape, a train run cut at 160 matches the test. ntl-glmll160-{flash,glm53} (build_glmll.py 160) are
+  running. experiments/exp051_glm_cut160.py:
+  - drift: stage run vs the 512- and 160-cut train runs on the 120 texts;
+  - oof: heads trained on 512 / 160 / both cuts, each scored on 160-cut features against the public setting (trained
+    at 512, tested at 160);
+  - export: heads for build_lv694.py.
+
+### 2026-11-14 21:46 UTC: exp051 results (GLM-5.3 test noise = decode neighbours), feiyu26's graft forked
+
+- exp051 (ntl-glmll160-{flash,glm53} done): the 160-cut train run equals the 512-cut one on most rows (feature
+  |gap|/sd median 0.0000, p99 0.58). Against the stage run on the 120 check texts, Flash moves from 0.013 to 0.005 nats
+  per token (median), but GLM-5.3 stays at 0.096. Heads trained on 160-cut features do not beat the 512-cut ones when
+  scored on 160-cut features (cover 0.20, vs the public setting): lr 160 +0.0014 [-0.0019,+0.0045]; gbm 512 +0.0063
+  [+0.0022,+0.0108], gbm 160 +0.0040, gbm both +0.0062. Hypothesis rejected.
+- What moves GLM-5.3's scores is which 7 texts share a text's decode: run_pipeline decodes rows in input order (no
+  --pack), and the stage decodes the selected test rows in test order. ntl-glmll160s1-glm53 (build_glmll.py 160 1,
+  train rows shuffled with seed 1) differs from the unshuffled 160-cut run by a median 0.104 nats per token (2% of
+  tokens identical), the same size as the stage gap. Flash barely moves.
+- Robustness to that noise (scratchpad crossview.py, OOF, cover 0.20, scored on the shuffled view): gbm trained at 512
+  gives +0.0315 vs the stack, the same as on the unshuffled view, and +0.0060 [+0.0019,+0.0104] over the public head.
+  Training on all three views (512 + 160 + shuffled) gives only +0.0040, and lr on all three +0.0011. On the 120 real
+  stage-check texts the noise flips ~9% of blend decisions with no change in accuracy (his 0.783 / 0.783, gbm 0.767 /
+  0.767, train vs stage features). Conclusion: the gbmpair head in the slate is robust to the test noise and stays.
+- Stage selection rules at the same budget (OOF): ranking by the stack's GLM mass is already best. Adding Claude mass
+  costs -0.02; uncertainty-weighted rules are within +-0.0015. Cover 0.25 adds nothing for the gbm head (+0.0315 at both
+  0.20 and 0.25), so the fixed 130k-row budget stays and the 9 h limit is not risked.
+- New top of the score-sorted Code tab (14:00 UTC; scores hidden, listed above lightningv08's 0.694):
+  feiyu26/ntl-0684-v1-graft = the public 0.684 stack (Atlas V9 + Qwen3-Embedding multidepth, GSQ 3%, native 0.40,
+  comp_w 0.15) followed by estopadilla's time-boxed V1 stage (8.8 h deadline, at most 30%) as a base64 tar.gz payload
+  byte-identical to his 0.689 files (kaggle/glmll/v1src). Second: lbjyang/ntl-693-sanpier-glm-likelihood, a rerun of
+  sanpier's copy of the 0.689.
+- kaggle/nlm/build_graft.py: forks of the graft. It rewrites the payload (his ll_model.json -> our head, build_lv694.py's
+  v1_stage.py patches whose four anchors occur once in his file, + extra_features.py), re-embeds it and updates its
+  sha256 assert. Only the setup cell changes; the patched stage differs from ntl-lv694-gbm's only in his time-boxed
+  selection. ntl-graft-gbm v1 committed 21:52 UTC (FAST_COMMIT preview; V1 checks OK: payload sha, binary, 25 segments, GPU smoke test). The 11-15 slate is re-armed: graft-gbm, gbm, gbm-g0sib, gbm-g3,
+  gbm-sib (pair dropped).
+
+### 2026-11-14 23:25 UTC: goal "experiments for passing 0.7" (18 h before any submission), first checks
+
+- User's goal (23:00 UTC): stop everything, experiment at least 18 h, then submit one notebook at a time and only
+  when confident, no sharing. The 11-15 midnight slate (b3fkt8y78) was stopped at 23:02 UTC before it submitted
+  anything. Earliest submission: 2026-11-15 17:01 UTC.
+- The bar: the public leaderboard CSV (23:13 UTC) gives feiyu26's team (gugugaga) 0.696 at 05:05 UTC 11-14, i.e. the
+  graft's run, and lbjyang 0.696 (prvsiyan's page: his rerun of sanpier's 0.693 code). Identical V1-stage code has
+  now scored 0.689 / 0.693 / 0.694 / 0.696: about +-0.003 of run-to-run noise (cover and decode neighbours).
+  The top of the board is 0.771; jamesliebel (the GLM-5.3 segment mirrors) is 2nd at 0.765, and ggayoayogg's team
+  (who uploaded Kimi-K3 UD-Q2_K_XL, 19 x ~49 GB = 840 GB, 2.78T MoE) is 26th at 0.736.
+- Kimi-K3 likelihood: out of reach this week (840 GB of weights read per pass, a new KDA + MLA architecture with no
+  public segment runner, ~5 h of GPU for train features, 7.8 h of GPU quota left until 11-21).
+- Out of fold on exp050's stand-in after the GLM stage (gbm head, cover 0.20; scratchpad p70/):
+  - Peng Yipeng's within-family style residual (his 0.687, our transcription, strength 0.10, width 0.65): -0.0004
+    on the stack, -0.0015 after the stage; stronger mixes lose up to -0.011. His own header says the check failed;
+    his +0.003 on the board is noise. Dropped.
+  - Qwen3-4B-Base reference likelihood (ntl-refll) outside the GLM rows, alone or with the GLM columns, LR or trees,
+    by qwen / GPT+Kimi+Qwen / uncertainty mass at covers 0.2-1.0: every result within -0.004..+0.005, all intervals
+    across 0. A neutral likelihood adds nothing anywhere.
+  - Entropy-banded sampling-signature features (lp + H, rank-1 rate per entropy band, cross-model gaps at GLM-5.3's
+    high-entropy positions) in the trees: -0.0044 [-0.0081, -0.0011] clean view, -0.0034 shuffled view. Dropped.
+  - Errors left after the stage: gemini-3.7 <-> 3.8-flash (46 rows each way), GPT-5.6 variants, kimi-k3 (recall
+    0.47; every member 0.30-0.51, true class outside the top 2 on ~40% of kimi rows), GLM <-> Claude.
+- Running: ntl-q38ll (kaggle/glmll/build_q38ll.py: every train passage under the open Qwen3.8-27B chat model, NF4 from
+  lightningv08's assets, no-think assistant turn; a sibling likelihood for qwen3.8-max, evaluated by
+  experiments/exp052_qwen_sibling_ll.py) and ntl-stagecheck-graft (kaggle/glmll/build_stagecheck_graft.py: ntl-graft-gbm's
+  own V1 cells end to end on the 120 most GLM-like train rows; build_stagecheck.py now shares offline_expected(),
+  ntl-stagecheck-gbm rebuilds byte-identical).
+- 2026-11-15 00:00 UTC: ntl-stagecheck-graft COMPLETE: ntl-graft-gbm's own V1 cells (payload sha, binary, 25 segments,
+  GPU smoke test) and its patched v1_stage.py on the 120 rows: status applied, blocks flash + glm53 + pair, changed
+  0.325, **0.950 agreement with exp050's offline predictions** (114 / 120; the rest is decode-neighbour noise). The
+  graft's own commit log (feiyu26, 11-14 04:57) resolves every model / adapter path as ours and reads the same open
+  pool (v17, 226,191 rows), so ntl-graft-gbm differs from the 0.696 run only in the head. Stage timings: Flash 519 s
+  (est. 524), GLM-5.3 1,123 s (est. 933) for 18,794 rows; with the 160-cut train runs (362,706 rows) that gives
+  Flash ~260 s + 0.0136 s / row and GLM-5.3 ~690 s + 0.022 s / row (estopadilla's own constants: 870 + 0.0141,
+  1,140 + 0.0231). The graft's 100 + 0.0225 / 100 + 0.0442 overestimate by ~40% at test scale (130k rows): it covers
+  ~19% where ~30% would fit, and never overruns. Kept as is (the scored setting).
+- Out of fold, more stage rows chosen by kimi / Claude / uncertainty mass beyond the GLM 20%: all within +0.002
+  (intervals across 0); tree class-weighting and depth / rate variants: +-0.001. Blend W / cover for gbmpair: W 1 at
+  cover 0.20-0.30 is the optimum on both views; cover 0.15 costs -0.003.
+- 2026-11-15 00:20 UTC: exp052 (ntl-q38ll COMPLETE: 2,699 texts, 327,567 tokens, 3,015 s on two T4s, no non-finite
+  rows; outputs/exp052_qwen_sibling_ll). The open Qwen3.8-27B is no sibling of qwen3.8-max in likelihood: qwen3.8-max
+  passages are less likely under it than Claude passages (mean lp -2.59 vs -2.12..-2.51; AUC qwen vs rest from lp_mean
+  0.469, from lp_mean - Qwen3-4B 0.634, - Flash 0.600). Heads on its features alone: qwen recall 0.09-0.29. In the blend
+  after the GLM stage (qwen or GPT+Kimi+Qwen mass, covers 0.1-0.4, W 0.5-1.5, 144 settings) the best is +0.0037
+  [+0.0004, +0.0070] with qwen recall 0.767 -> 0.773: selection noise. Dropped (it would cost ~25 min of the 9 h).
+- 2026-11-15 02:10 UTC: exp053 (experiments/exp053_glm_head_pool.py; ntl-glmllpool-flash / -glm53 COMPLETE: 2,000 open-pool
+  v17 rows, 250 for each of the 8 stage labels, one per prompt, no proxy route after the pool's ruling, drawn by
+  match_weight; outputs/exp053_glm_head_pool). Out of fold on the official rows with the pool rows in every training
+  fold (label totals kept equal), cover 0.20, vs gbmpair: trees only alpha 0.5 / 1: -0.0037 / -0.0030 (clean view),
+  -0.0027 / -0.0033 (shuffled); trees + LR: -0.0023 / -0.0026 and -0.0015 / -0.0008. Without kimi rows -0.0027;
+  GLM rows only +0.0010 [-0.0022, +0.0044] at alpha 0.5; in-fold adversarial importance weights -0.0012 / -0.0016.
+  Pool passages are told from official ones at AUC 0.64 on these features: the GLM labels match (glm-5.3 lp_mean
+  -2.31 vs -2.33) but the Flash - GLM-5.3 contrast moves for Claude (opus-5 d:lp_mean 0.05 vs 0.16) and pool kimi-k3
+  is far off (lp_mean -2.67 vs -3.02; the pool's own fidelity ratio for kimi is 0.46). The official-row learning curve
+  does not extend to pool rows. Dropped; gbmpair stays the head.
+- 2026-11-15 02:25 UTC: build_graft.py `cost` knob: ntl-graft-gbm-cost = ntl-graft-gbm with V1_COST = Flash 400 s +
+  0.0165 s / row, GLM-5.3 900 s + 0.0265 s / row (~20% above the fit to three measured runs; ntl-graft-gbm rebuilds
+  byte-identical). Simulated on 4,000 train-like texts (v1_stage's own row estimate and margins, Flash and GLM-5.3
+  times from the fit, machines 1.0 / 1.11 / 1.3x slower): stage windows of 7,560 / 9,360 / 10,800 s give the graft's
+  constants 17.8% / 22.2% / 25.8% cover, the refit 22.9% / 29.9% / 30.0% (the cap); no overrun in any case (tightest:
+  1.3x machine, 9,360 s, 5,602 s needed of 5,956). By the gbmpair cover curve (shuffled view) that is worth ~+0.001
+  on a slow-stack run and ~0 otherwise: a robustness change, kept for a second submission. v1 pushed for its commit.
+- 2026-11-15 02:45 UTC: bagged trees in gbmpair (logit-averaged, prompt bootstrap K 5 / 10, or 80% of prompts K 5),
+  vs the single tree model, cover 0.20: clean view +0.0007 / +0.0018 / +0.0019 (intervals across 0), shuffled
+  (test-like) view +0.0003 / +0.0003 / -0.0001. No gain under test noise; gbmpair unchanged.
+- 2026-11-15 02:47 UTC: submission #1 armed (kaggle/tools/midnight_submit_lv694.sh "2026-11-15 17:01:30"
+  ntl-graft-gbm:1, the end of the 18 h experiment window): ntl-graft-gbm v1 = the 0.696 graft with only the GLM head
+  replaced by gbmpair (OOF +0.0060 [+0.0019, +0.0104] over the public head on the test-like view; stage verified end
+  to end on Kaggle; same inputs as the 0.696 run).
+- 2026-11-15 02:52 UTC: ntl-graft-gbm-cost v1 committed (FAST_COMMIT preview: svc pool rows 226,191, V1 checks OK:
+  payload sha, binary, 25 segments, GPU smoke test). Candidate for the second submission, to go in while #1 scores.
+- 2026-11-15 03:00 UTC: leaderboard CSV (02:05 UTC): areebbb's team 0.696 (their path-fixed copy of the graft, 15:39
+  UTC 11-14; now first in the score-sorted Code tab as areebbb/0-696-this-actually-works), feiyu26 0.696, lbjyang
+  0.696, lightningv08 0.694, ours 0.693. The graft's code has scored 0.696 twice: the bar is 0.696.
+
+### 2026-11-15 04:07 UTC: Code-tab change (ozertuu/0-689-dual-svc-residual-refinement-apex)
+
+- A new entry heads the score-sorted Code tab.
+  - Its 21 code cells are byte-identical to feiyu26/ntl-0684-v1-graft; only the markdown differs.
+  - ozertuu's team best on the leaderboard CSV (04:06 UTC) is 0.696, so the bar stays at 0.696.
+- Nothing to learn from it. Submission #1 (ntl-graft-gbm v1, 17:01:30 UTC) and #2 (ntl-graft-gbm-cost v1) are unchanged.
+
+### 2026-11-15 08:31 UTC: what is left after the GLM stage (GLM-5.3 writes like claude-fable-5)
+
+- The Mac hibernated at 1% battery from 07:11 to 08:21 UTC and resumed on AC. The armed job checks the wall clock
+  every 30 s, so submission #1 is still due at 17:01:30 UTC.
+- Errors after the stage, out of fold (exp050 stand-in, gbmpair head, cover 0.20; scratchpad p71/):
+  - 865 errors: 524 within a provider family, 341 across families.
+  - Gains if every cross-family error of a family were fixed: GLM +0.042, kimi +0.030, Claude +0.023, GPT +0.018,
+    qwen +0.013.
+  - The GLM errors are mostly claude-fable-5: 44 of the 89 wrong GLM rows inside the cover go to fable, and 27 of the
+    64 false GLM calls are fable passages. 35 wrong GLM rows lie outside the cover.
+  - On covered rows, the head alone and the stack tell GLM from the rest equally well (AUC 0.739 / 0.741).
+- Head opinion among the 16 non-GLM classes flattened (total mass kept, spread evenly or by family): -0.005 at W 1;
+  higher W only gets back to about 0. The head's non-GLM ranking carries information. Dropped.
+- GLM-family vs claude-fable-5 text specialist (char 2-5 + word 1-2 TF-IDF, logistic):
+  - Training sets: 12,000 open-pool v17 rows, official rows of the other folds, or both.
+  - **AUC 0.55-0.57 on official rows**: by n-grams GLM-5.3 / Flash text is nearly indistinguishable from claude-fable-5.
+  - Re-ranking GLM-vs-fable top-two rows with it, on the stand-in and on a pool-aware stand-in (core + exp030's
+    open-pool SVC at weight 12, stack 0.6505, stage 0.6839): best +0.001, larger weights -0.005 to -0.010.
+  - The stage's own margin separates the same rows at AUC 0.82: only the likelihood signal works there. Dropped.
+- Stage rows ranked by GLM mass + beta x fable mass: no gain beyond cover. GLM mass alone at cover 0.25 / 0.30 gives
+  +0.0004 / +0.0011 (stand-in A) and +0.0015 / +0.0007 (pool-aware B), intervals across 0, the same small edge #2
+  (ntl-graft-gbm-cost) is meant to take.
+- The stage already scores in GLM's assistant turn (`[gMASK]<sop><|user|><|assistant|><think></think>`).
+- A Kimi likelihood (kimi recall 0.47, all errors cross-family) needs a new segment runner (ntl-segrun is GLM-specific)
+  and the 840 GB weights: a multi-day project for the next GPU quota (11-21), not this window.
+
+### 2026-11-15 08:36 UTC: ntl-graft-gbm-cost dropped (stage fallback risk); lbjyang's "700" notebook
+
+- GLM-5.3 pass times of our eight runs fit 690 s + 0.0228 s/row within 3-15%:
+  - 160-cut train run: 8,978 s for 362,706 rows; the same rows shuffled: 9,259 s.
+  - Pool rows: 6,879 s for 271,872 rows.
+  - 512-cut train run: 11,121 s for 430,704 rows.
+  - 120-text stage checks: 1,123 / 1,285 s.
+- The graft's config cell records feiyu26's own scale run: Flash 979 s, GLM-5.3 1,926 s for 47,098 rows. That is 1.09x
+  our model, and an over-optimistic estimate there "lost the whole run to its budget".
+- scratchpad p71/stagesim.py simulates v1_stage.py on 4,000 train-like texts: selection, Flash budget, post-Flash GLM-5.3
+  re-check, and exit-3 fallback to the stack. Stage windows 6,000-10,800 s, machines 1.0-1.6x our speed:
+  - **graft constants**: never fall back; cover 12.9 / 16.5 / 20.7 / 24.0%.
+  - **committed cost (GLM 900 + 0.0265)**: 15.7-30.0%, but at 1.45x (1.33x feiyu26's machine) 18-20 of 20 runs
+    fall back to the stack (about 0.684).
+  - GLM 0.031 / 0.034 s/row: safe to 1.45x / 1.6x, cover +1.3 / +0.4 points at the short window, +4 points at the long
+    ones, where cover past 20% is worth about 0 out of fold.
+  - So the knob is worth about 0 in expectation, and the committed version risks the whole stage. **#2 =
+    ntl-graft-gbm-cost is dropped** (never submitted). The earlier "no overrun up to 1.3x" was right but left too little margin.
+- lbjyang/ntl-700-v3-share40-cover20-instrumented (08:22 UTC): lightningv08's V42 line with GSQ 0.12 / native 36% /
+  cover 20%. lbjyang's best on the leaderboard CSV (08:32 UTC) is still 0.696, so "700" is a target. The public bar
+  stays at 0.696 (feiyu26, areebbb, ozertuu, lbjyang).
+- Public Kimi-K3 groundwork: ggayoayogg/kimik3-ud-q2kxl-1..6 (~840 GB, public) and tamerlanomralinov/ntl-kimi-toy-gguf
+  (2-layer synthetic Kimi-K3 GGUFs, 11-14), i.e. someone is building a segment runner for it.
+- Plan: #1 (ntl-graft-gbm v1) goes in at 17:01:30 UTC as armed. No second notebook goes in until an experiment earns
+  confidence.
+
+### 2026-11-15 10:13 UTC: Code-tab change (ozertuu/residual-sibling-gating-apex-better)
+
+- It is areebbb's path-fixed copy of the graft. The only changes:
+  - RUN_LIMIT_S drops from 7.5 h to 7.0 h, so the stage gets about 1.8 h.
+  - V1_COST uses estopadilla's constants (Flash 1,350 + 0.0113 s/row, GLM-5.3 1,820 + 0.0199 s/row).
+- By p71/stagesim.py's time model, those constants leave the GLM-5.3 pass 18-29% headroom: the same fallback risk
+  that dropped our cost variant.
+- Leaderboard CSV (10:12 UTC): ozertuu 0.696 (submitted 02:47), heliosli 0.696, feiyu26 / areebbb / lbjyang 0.696,
+  lightningv08 0.694, ours 0.693. Nobody in this lineage is above 0.696, so the bar is unchanged.
+
+### 2026-11-15 11:03 UTC: self-training the GLM head on the stage's own test rows (scratchpad p71/selftrain*.py)
+
+- Idea: the stage scores ~800-1,200 test rows (a third of train's size) with test-like decode noise. Refit the head with
+  the confident blended predictions as extra labels, then re-predict.
+- OOF simulation:
+  - gbmpair fitted on a train part (clean 512-cut features); the test part uses the shuffled 160-cut GLM-5.3 view.
+  - The stage covers the top 20% of the test by stand-in GLM mass, then blends.
+  - S2 (train 2 prompt folds, test 3) puts pseudo rows at ~7% of train, as on the real test; S3 is train 3 / test 2.
+- First 5 splits (S2): +0.002 to +0.003. Repeated over 25 splits (5 random prompt-fold seeds):
+  - **S2: best +0.0015 +- 0.0004** (trees + LR, tau 0.5, 18/25 splits positive); trees only +0.0004..+0.0011.
+  - **S3: +0.0003..+0.0012.**
+  - Controls: true labels on the same rows give only **+0.0018** (the ceiling); random labels -0.0037.
+  - Blended predictions with confidence above 0.5 are 80% right, but only ~23% of covered rows reach it.
+- Expected about +0.001 for a stage patch that refits sklearn models at test time: not worth the risk. Dropped.
+
+### 2026-11-15 11:05 UTC: Kimi-K3 likelihood stage, feasibility (no GPU used)
+
+- Sizes:
+  - GLM-5.3 IQ3_XXS: 19 segments x ~14.6 GB, about 275 GB (pass about 690 s + 0.0228 s/row).
+  - Flash: 6 x ~22 GB, about 125 GB.
+  - Kimi-K3 UD-Q2_K_XL (ggayoayogg, public): 19 files x ~49 GB, about 840 GB, split by size, not by layer.
+- At about 3x GLM-5.3, a Kimi pass over the top 10% of test rows by kimi mass is about 1.6 h; train features about
+  7.5 h of GPU. The graft's 9 h is already full.
+- ntl-segrun = llama.cpp b12247 + estopadilla's patch (source embedded in estopadilla/ntl-glm-likelihood-train; built
+  in-kernel with internet in ~25 min). It is validated only for the glm5-next / glm-dsa archs. A Kimi stage needs:
+  - Kimi-K3 arch support in llama.cpp;
+  - the segment patch ported to KDA + MLA;
+  - layer segments of 840 GB (or a runner that slices layers from the original files: tamerlanomralinov's toy
+    slice0 / slice1 / whole GGUFs look like exactly that, in progress).
+- **Single-model likelihood is weak (scratchpad p71/single_model.py, OOF, cover 0.20)**:
+  - GLM-5.3 columns alone +0.0078 over the stack, Flash alone +0.0089 (head-alone GLM recall 0.25 / 0.28).
+  - All 66 columns with the Flash-vs-GLM-5.3 contrasts: +0.0337 (recall 0.59).
+  - The stage's gain comes from the sibling contrast. Kimi-K3 has no open sibling, so a Kimi stage would likely add
+    about +0.003 to +0.008.
+  - Not worth days of C++ and ~1.6 h of the budget unless a public runner appears (watch tamerlanomralinov).
+
+### 2026-11-15 12:23 UTC: #1 submitted early; publish page ready (conditional share)
+
+- At the user's request #1 (ntl-graft-gbm v1) was submitted at 12:16 UTC instead of 17:01 (sub 58383840, INDEX #108).
+- The user allowed a share **only if it beats the highest public Code score** (0.696 now: the graft and its copies).
+- kaggle/nlm/publish_graft.py builds the page from the scored notebook (pulled v1; its code cells match the build byte
+  for byte): our header (what changed, why, OOF evidence, LB A/B, credits, Llama notice), a markdown cell before the
+  V1 stage cells, the 0.684's header dropped. kirilltym's paired-4404 dataset is attached to the graft but never read
+  (no cell names its files; no glob matches them), so the page leaves it out. Title: "<score> | GLM-5.3 Likelihood +
+  Boosted-Tree Head". Every other input is public (visibility_of.py). quick_save.py --dry-run passes.
+- 13:13 UTC Code-tab change: ozertuu/0-689-dual-svc-residual-refinement-apex left the top 5, and
+  ozertuu/residual-sibling-gating-apex-better has a new version (12:57). The new version differs from the 11-15
+  morning copy only by a markdown changelog. It mentions a "margin gating refinement", but no code cell changed; the
+  model list is only reordered. LB CSV 13:13: every top Code-tab author is still at 0.696, so the share bar is 0.696.
+- 14:25 UTC: the watcher's "change" was a false alarm. top_kernels.py printed a token-refresh notice, and the
+  watcher now reads only kernel lines. ozertuu's notebook has another version (13:51, "v10"): again only a changelog
+  line, no code change. The bar is still 0.696.
+
+### 2026-11-15 15:32 UTC: new public top 0.701 (lumibee/ntl-kiro-v44-apex-grandmaster); OOF check; fork with our head
+
+- Code tab 15:26 UTC: lumibee (team UJS, LB CSV 0.701, last submission 08:00, kernel run 07:53) is above the 0.696s.
+  **The share bar is now 0.701.**
+- Static diff against feiyu26's graft:
+  - path sorting for both mount layouts plus an input-check cell (asserts that all 35 inputs are mounted, kirilltym's
+    unread dataset included);
+  - RUN_LIMIT 7.5 -> 7.0 h and estopadilla's V1_COST (= areebbb's / ozertuu's 0.696 copies);
+  - a new post-stage cell (estopadilla's head unchanged, same payload sha b0bb99...):
+    1. a per-family style logistic regression (pngy_residual.py: punctuation / function-word / shape counts, C 0.03,
+       balanced) refines the **stack's** final-logits.npz within the claude / gpt / gemini / glm families (gate
+       (0.65 - top-1/top-2 margin) / 0.65 x 0.10);
+    2. every row whose stage prediction is not glm-5.3 / glm-5.3-flash is replaced by argmax(refined stack). This
+       undoes the stage's moves out of GLM and keeps its moves into GLM;
+    3. typographic invariants re-picked from softmax(refined): spaced em dash only for opus-4-6 / opus-5 / glm*; no
+       curly apostrophe for claude* / glm*; no em dash for gemini*.
+- OOF (scratchpad p72/lumipost.py, our transcription, stand-in stack + stage, 5 prompt folds; paired bootstrap vs
+  the stage with his head):
+
+  | | shuffled view, cover 0.20 | clean view, cover 0.30 |
+  |---|---|---|
+  | his stage | 0.6720 | 0.6743 |
+  | his + lumibee post | -0.0041 [-0.0093, +0.0004] | -0.0067 [-0.0122, -0.0015] |
+  | gbm stage (#1) | +0.0060 [+0.0019, +0.0104] | +0.0062 [+0.0018, +0.0111] |
+  | gbm + lumibee post | -0.0012 [-0.0078, +0.0056] | -0.0027 [-0.0096, +0.0044] |
+  | gbm+post vs his+post | +0.0030 [-0.0007, +0.0067] | +0.0040 [+0.0004, +0.0082] |
+
+  - Step 2 ("undo") is the cost: his stage moves ~40 rows out of GLM, 63% of them correctly.
+  - The sibling refine alone: stack 0.6465 -> 0.6461. The typography rules: -0.0004.
+  - So OOF says the post-processing hurts, yet it scored +0.005 on the public board (0.696 -> 0.701). The OOF
+    proxies for post-processing have misled before (11-11 sibling re-rank OOF -0.0007, LB +0.005).
+  - Our head still adds +0.003 to +0.004 under the post-processing.
+- Built **ntl-kiro-gbm** (build_graft.py, new upstream "kiro44", sha 652ed3ef): lumibee's notebook with the gbmpair
+  payload. The only code change is the payload and its sha assert; the payload is byte-identical to ntl-graft-gbm's
+  (stage-checked on Kaggle). Pushed 15:30 UTC for its commit run (GPU quota 63.7k / 75.6k s before the push). The
+  TPU job ntl-tpu-q14v16 (queued since 11-13) started on its own at 12:04 UTC on the free TPU quota.
+- 16:01 UTC Code tab: evgendvorkin's "Deep Forensic EDA" (run 08:00, LB CSV team best 0.696) is now second. It is
+  lumibee's base without the post-stage cell (same path sorting, RUN_LIMIT 7.0 h, estopadilla's V1_COST, plus EDA
+  cells). So the same base scores 0.696 without the post-processing and 0.701 with it: a clean public-LB A/B
+  (+0.005), against the OOF's -0.004.
+
+### 2026-11-15 16:36 UTC: dhrubangtalukdar's group cap (public 0.698 without a GLM stage); OOF; ntl-kiro-gbm-gcap
+
+- 16:32 UTC Code tab: dhrubangtalukdar/transformer-ensemble-gda-score-0-680 (run 08:20, LB CSV 0.698; the title's 0.680
+  is stale) is second. Static diff against the graft:
+  - the 0.684 stack with **no GLM stage** (V1 cells removed), comp_stack.py importing gauss.py (same code), and a
+    provenance guard;
+  - **group_cap_probs** in infer.py's decide_scores, before the Sinkhorn step: within each test prompt group of 2..18
+    rows (Gte: Qwen-embedding clusters, cap 18, sim 0.70), a class whose summed probability exceeds 1 is shrunk and
+    the rows are renormalised (25 iterations), mixed geometrically at strength 0.5.
+  - 0.684 -> 0.698 on the public board from this alone.
+- OOF (p72/gcap_oof.py, stand-in stack, shuffled view, cover 0.20). Every train prompt has all 18 models (149 x 18
+  + 1 x 17), so true groups are an upper bound:
+
+  | groups | stack | his stage | gbm stage | gbm stage + lumibee post |
+  |---|---|---|---|---|
+  | none | 0.6465 | 0.6720 | 0.6780 | 0.6709 |
+  | true prompts | 0.7284 | 0.7536 | 0.7561 | 0.7517 |
+  | 30% of rows ungrouped | 0.6694 | 0.6954 | 0.6995 | 0.6950 |
+
+  The GLM stage's gain (+0.025) is unchanged on top of the cap, and gbm still beats his head (+0.004): the two add up.
+  lumibee's post-processing stays at about -0.004 OOF.
+- Built (build_graft.py extra "gcap", dhrubangtalukdar's infer.py byte for byte + `--group_cap 0.5` in the command):
+  - **ntl-kiro-gbm-gcap** = lumibee's 0.701 + gbmpair + group cap; pushed 16:34 UTC.
+  - ntl-graft-gbm-gcap = the graft + gbmpair + group cap (no post-stage cell); built, not pushed.
+  - Expectation if the public steps add up: 0.684 + 0.014 (cap) + 0.012 (stage) + 0.005 (post) + ~0.002 (head) ≈ 0.71.
+- 17:40 UTC: neither GPU commit has started: ntl-kiro-gbm is QUEUED since 15:30, -gcap since 16:34.
+  - The session status API gives no reason. GPU quota: 63.7k / 75.6k s used, none reserved. Earlier commits ran with
+    1.7-5.6 h left, so the quota is probably not the cause.
+  - The only change since our last GPU runs: the TPU job ntl-tpu-q14v16 has been RUNNING since 12:04 (32,400 s
+    reserved: 9 h).
+  - The API exposes no session id to cancel it with, and the deadline is 2027-01-13, so there is no end-of-competition
+    rush. Asked the user whether to stop the TPU job (it is pre-goal work from the deprioritised TPU-member track).
+- 18:14 UTC: ntl-kiro-gbm's commit ran 18:04-18:13 (queued 2.5 h for a GPU while the TPU job kept running, so the TPU
+  was not the cause): 35 inputs, missing []; V1 checks OK (binary sha256, 6 + 19 segments, GPU smoke test). Submitted
+  as #109 (sub 58396254). ntl-kiro-gbm-gcap is still queued.
+- 18:53 UTC: ntl-kiro-gbm-gcap's commit COMPLETE (35 inputs, V1 checks OK; the fast commit never runs infer.py, whose
+  group cap is byte-identical to dhrubangtalukdar's scored infer.py). Submitted as #110 (sub 58397486).
+- 19:05 UTC Code tab: sanpier/0-693-real-glm-5-3-glm-5-3-flash-likelihood (new version, run 13:52; LB CSV 0.697 from
+  an 11:25 submission) is third. It is the estopadilla-0.689 line (5 code cells, the original V1 payload sha
+  b0bb99...); no group cap and no post-stage cell. Bar unchanged at 0.701.
+- 19:53 UTC: **#1 ntl-graft-gbm scored 0.697**, +0.001 over the graft's 0.696 and our best so far (was 0.693). The head's
+  +0.006 OOF became ~+0.001 on the public board (we expected ~+0.002). The public top is 0.701 (lumibee), so the
+  user's share condition is not met: not shared. #109 / #110 are still pending.
+- 22:36 UTC: Code-tab watcher fired on a rank-5 reorder only (ozertuu's 0-689-dual-svc vs residual-sibling-gating). LB
+  CSV: no Code-tab author moved (lumibee 0.701, dhrubangtalukdar 0.698, sanpier 0.697, rest 0.696); we are 0.697. Bar
+  unchanged at 0.701; #109 / #110 still pending.
+
+### 2026-11-16 01:26 UTC: #109 ntl-kiro-gbm = 0.701; group-cap strength sweep; ntl-kiro-gbm-gcap75
+
+- **#109 ntl-kiro-gbm scored 0.701**, the same as lumibee's 0.701 (identical code apart from the V1 head). So the gbm
+  head is worth +0.000 on this base (+0.001 on the graft, #108). The LB CSV now shows ~17 teams at exactly 0.701, all
+  copies of lumibee's notebook: it is deterministic at 0.701. No Code-tab author moved; bar unchanged at 0.701.
+- The group cap keeps its effect in the stack's saved logits: infer.py calls `save_final_logits(decide_scores(P))`,
+  and decide_scores applies the cap first. So the GLM stage and lumibee's step 2 (argmax of the refined stack) both
+  see the capped logits.
+- OOF sweep of the cap strength under imperfect groups (scratchpad p72/gcap_sweep.py, stand-in stack, then the gbm
+  stage at cover 0.20; stack / stage balanced accuracy; no cap: 0.6465 / 0.6780):
+
+  | groups | s=0.25 | s=0.5 | s=0.75 | s=1.0 |
+  |---|---|---|---|---|
+  | true prompts | 0.6909 / 0.7187 | 0.7284 / 0.7561 | 0.7621 / 0.7902 | 0.7806 / 0.8069 |
+  | 30% of rows ungrouped | 0.6587 / 0.6898 | 0.6694 / 0.6995 | 0.6809 / 0.7113 | 0.6928 / 0.7217 |
+  | 60% of rows ungrouped | 0.6520 / 0.6828 | 0.6565 / 0.6872 | 0.6591 / 0.6902 | 0.6609 / 0.6924 |
+  | prompts split into chunks of 3..6 | 0.6502 / 0.6809 | 0.6546 / 0.6858 | 0.6572 / 0.6883 | 0.6583 / 0.6898 |
+  | 30% of members wrong (sizes kept) | 0.6635 / 0.6928 | 0.6735 / 0.6995 | 0.6724 / 0.6987 | 0.6513 / 0.6743 |
+
+  - Missing or split groups: stronger is better all the way to 1.0.
+  - Impure groups: the best strength is about 0.5–0.75, and 1.0 loses 0.025.
+  - dhrubangtalukdar's +0.014 on the public board (0.684 -> 0.698) matches the 30–60%-ungrouped or chunked rows, where
+    0.75 adds +0.003 to +0.012 over 0.5. With 30% wrong members, 0.75 costs only 0.001.
+- Built **ntl-kiro-gbm-gcap75** (build_graft.py extra "gcap75"; the same as #110 apart from `--group_cap 0.75`; the
+  other builds are byte-identical after the change). Pushed 01:30 UTC for its commit run (GPU quota 64.7k / 75.6k s
+  before the push; the TPU job has ended, 0 s reserved). It will be submitted only if #110 shows the cap working on top
+  of the 0.701.
+- 01:40 UTC: ntl-kiro-gbm-gcap75's commit COMPLETE (started at once, no queue; ran 10 min): 35 inputs, missing [];
+  V1 checks OK; infer.py identical to #110's (the strength is a command argument). Held until #110 scores.
+- 01:45 UTC: **#110 ntl-kiro-gbm-gcap scored 0.698**, -0.003 vs #109 (identical apart from the cap). So on the GLM
+  stage + lumibee's post-processing the cap does not add; OOF had it adding +0.02 to +0.08.
+  - Correction to the 16:36 note: the LB CSV gives each team's *best* score with its *last* submission date. So
+    dhrubangtalukdar's 0.698 is not necessarily his cap notebook's score. The Code tab ranks his notebook second (above
+    sanpier's and evgendvorkin's, whose team bests are 0.697 and 0.696), so it probably scored 0.696-0.701, i.e. the cap
+    alone is likely worth +0.012 or more on the 0.684 stack.
+  - Likely reading: the cap and the GLM stage fix the same errors (e.g. two rows of a prompt both claiming glm-5.3
+    versus glm-5.3-flash), and lumibee's post re-picks from the capped logits, so their gains overlap.
+  - Not submitting ntl-kiro-gbm-gcap75: 0.5 already loses 0.003 here, and a stronger cap is more of the same.
+  - For the final two selections: the public score covers only part of the ~4,000 test rows (split size not in our
+    notes), so a 0.003 gap is within noise; #110 may be worth a look as a private-LB hedge.
+- 02:06 UTC Code tab: sosyuki/ntl-v44-apex-fork (run 18:24) is second. Its code cells and inputs are identical to
+  lumibee's v44 (static diff: 0 lines); LB CSV team best 0.701. Bar unchanged at 0.701.
+- 05:07 UTC Code tab: evgendvorkin's notebook (version run 21:06) moved to first, above lumibee's (fewer votes, later
+  date, so probably a slightly higher unrounded score). LB CSV: his team best 0.696 -> 0.701 from that run. Static
+  match: all 24 of lumibee's v44 code cells verbatim, plus 6 train-only EDA cells in front. So nothing new: any
+  difference from lumibee's run is run-to-run (the time-boxed GLM stage's coverage depends on the run's timing).
+- 05:38 UTC Code tab (static matches against lumibee's v44, scratchpad p72/cellmatch.py):
+  - ozertuu/residual-sibling-gating-apex-better (04:52 version) is now second: all 24 v44 cells verbatim; team 0.701.
+  - boandme/ntl-v48b (21:20, team 0.701, fifth): v44 + "native2", their own Qwen3-4B-base native expert bagged at
+    0.3 into the native folds (`native4b/manifest.json`). Its asset source is listed as an empty kernel slug (not
+    public), so it can't be reproduced. It ranks below lumibee's, so probably <= 0.701.
+  - kirderf/name-that-llm-v16a (20:22, team best 0.697, eighth, below sanpier's 0.697) is "v45". It patches
+    v1_stage.py to save the V1-blended logits, refines those, and *protects* every row V1 changed (no undo of V1's
+    moves out of GLM). If that run is the team's 0.697 (likely from the Code-tab order), keeping V1's moves out of GLM
+    costs ~0.004 against v44. That suggests v44's +0.005 comes mostly from step 2 (undoing V1's moves out of GLM),
+    although OOF says those moves are 63% right. That fits test GLM likelihoods being shifted (exp051: decode
+    neighbours).
+- 08:48 UTC Code tab (static matches against v44):
+  - lumibee/ntl-kiro-v45-adaptive-family-apex (23:43; team still 0.701, last submission 01:21; ranked sixth, below the
+    v44 copies, so probably <= 0.701). The only change is pngy_residual.py: per-family strengths (claude 0.18, gpt 0.16,
+    gemini 0.14, glm 0.05, was 0.10 for all), 9 more markers, 28 more function words, LR C 0.03 -> 0.05.
+  - areebbb/0-701-read-the-fingerprints (07:33; team 0.701): all 24 v44 cells plus 6 train-only chart cells and a
+    final format-check cell.
+  - ozertuu's 08:11 version: v44 verbatim again.
+  - Bar still 0.701, held by the v44 copies (ours #109 included).
+
+### 2026-11-16 09:03 UTC: research sweep (user request: web search + deep dive into the public high scorers)
+
+- Three read-only research agents started: (1) static diffs of the 0.701-lineage variants (lumibee v46/v47/v48,
+  lbjyang "700" series, feiyu26 w15 variants, kirderf v16b-d, mohitnehete2005, satyabm24), scratchpad p73; (2) write-ups and
+  other approaches (alexchilton "0.701: All Public + What Failed", prvsiyan "The Prompt Is Not the Author",
+  dhananjayk2609, flexonafft, mercurydust, marceloasl99, sanpier), scratchpad p74; (3) web search (forum, blogs, open
+  weights per class, attribution literature).
+- Where the errors are (stand-in stack OOF 0.6465, per-class recall; scratchpad p72/base.npz):
+  - glm-5.3 0.287 and glm-5.3-flash 0.400 (each other, then claude-fable-5 / claude-opus-5); this is what the GLM
+    stage targets.
+  - kimi-k3 0.447 (gpt-5.5, glm-5.3-flash, claude-fable-5); gemini-3.7-flash 0.460 vs gemini-3.8-flash 0.573 (46 each
+    way); claude-fable-5 0.490 (glm-5.3 / glm-5.3-flash / claude-opus-5); gpt-5.6-sol 0.507 (luna / terra).
+  - Best: gemini-3.1-pro-preview 0.907, gpt-6-astra and claude-opus-5 0.880, claude-opus-4-6 0.847.
+  - 589 errors within a family, 365 across. The biggest non-GLM blocks are gemini 3.7 / 3.8 flash, the gpt-5.6
+    trio, and kimi-k3 vs gpt-5.5.
+- Agent 1 (0.701-lineage variants, scratchpad p73): nothing beats v44.
+  - LB-ranked losses: lumibee v46 (char TF-IDF residual, ~0.697-0.698), v47/v48 (higher twin/gauss weights,
+    ~0.694-0.696), cover 0.20 / 0.45 (kirderf v16b/d), W 1.5 without a GLM clamp (feiyu26 w15), ATLAS gemini_lite
+    (satyabm24), comp_stack repair (mohitnehete2005 v27).
+  - V1 member weight x0.6 ranked above 1.0 and 1.5 on lightningv08's 0.694 base (lbjyang mw06 #26, mw15 #60); untested
+    on v44.
+  - comp_stack (`--comp_w 0.15`) is probably dead in v44 and our forks: the checkpoint resolver returns a weightless
+    config directory for q3_8b, and the loading loop has no try/except (static reading plus v27's commit log). Repairing it
+    did not help.
+- Agent 2 (write-ups, scratchpad p74):
+  - alexchilton: identical-code reruns of estopadilla's 0.689 scored 0.682-0.694. The v44 copies all sit at exactly
+    0.701, so v44 looks stable (its V1 probably always reaches the 30% cap).
+  - GoPain's forum trick: out-of-fold scored on **2 answers per prompt** tracked the LB at correlation 0.91 over 15
+    submissions, against 0.13 with all 18. This fits our misses on group-based methods (cap +0.02 to +0.08 OOF, -0.003 LB)
+    and suggests the test has only a few answers per prompt.
+  - sanpier's A/B/C are v44 plus a pair-mass-preserving V1 update (V1 only changes glm-5.3 vs flash odds, so no moves
+    into GLM); team best 0.699 < 0.701. So v44's moves into GLM are probably worth keeping.
+  - areebbb: post-processing on this stack is close to saturated; the next gain has to come from new signal in the
+    readers.
+- Agent 3 (web): the public LB is ~40% of the test, and per-model test counts are unequal and differ between public and
+  private (search snippets of the overview). Test prompts have 1-3 passages each (dev.to write-up; another repo: test
+  clusters 1-8, Hungarian assignment loses at base BA >= 0.66). gemini-3.7 vs 3.8-flash is near chance for everyone.
+  Nothing public on the methods of the 0.72-0.77 teams.
+  - Open weights by class: GLM pair (in use). **kimi-k3: open K3 is 2.8T (infeasible), but K3's text_config is
+    `model_type: kimi_linear` with vocab 163,840 and bos/eos 163584/163586, identical to Kimi-Linear-48B-A3B-Base
+    (both config.json files re-checked by hand).** Kimi-Linear is MIT and not gated, 49B total / 3B active MoE, 27 layers.
+    llama.cpp supports kimi_linear since b7957 (PR #18755); Instruct GGUFs exist (DhruvalLabs, Myric); none found for
+    Base. qwen3.8-max: only a 2.4T open model (the 27B failed as a sibling, exp052). Gemini: Gemma 4 (same
+    tokenizer). GPT: gpt-oss-20b/120b. Claude: none.
+- Plan: exp054, a Kimi-Linear-48B-A3B likelihood as a sibling for kimi-k3 (recall 0.447; mostly called gpt-5.5).
+  Score the 2,699 train passages on a Kaggle CPU session with internet (llama.cpp >= b7957 built there, a 4-bit
+  Instruct GGUF; no GPU quota), with exp052's per-token features, then the exp052 protocol.
+  - Keep only if kimi recall rises clearly out of fold after the GLM stage (target 0.45 -> 0.6+).
+  - Plus 2-per-prompt OOF scoring for group-dependent decisions.
+- 09:29 UTC: pushed **ntl-kimill** (kaggle/glmll/build_kimill.py; private CPU session, internet on, no GPU quota).
+  - Build: the newest llama.cpp release tag (>= b7957 asserted), plus a small C-API scorer (ntl-kll: per-token log p,
+    entropy, E[log p^2], rank; the same columns as ntl-segrun / ntl-q38ll).
+  - Model: bartowski's Kimi-Linear-48B-A3B-Instruct Q3_K_M GGUF (22.7 GB, sha256 d63efc0d... checked after download).
+  - Scores the 2,699 train passages in an empty-user Kimi assistant turn (first 160 tokens), in a fixed shuffled order
+    under a 10.5 h cap, and logs a first per-class lp_mean / kimi-vs-rest AUC readout.
+  - Evaluation: experiments/exp054_kimi_sibling_ll.py (the exp052 protocol, with contrasts against Qwen3-4B-Base,
+    GLM-5.3-Flash and Qwen3.8-27B; partial runs are evaluated on the texts scored).
+- 10:21 UTC Code tab:
+  - alexchilton's "0.701: All Public + What Failed" is now second (v44 verbatim; team 0.701).
+  - mercurydust/name-that-llm-submission is eighth: v44 with only the post-stage cell changed (soft, bounded typography
+    evidence instead of the three hard rules); team 0.699 (last submission 01:59). So soft typography is probably
+    ~-0.002 against the hard rules.
+  - ozertuu's 10:02 version: v44 verbatim. Bar still 0.701.

@@ -32,18 +32,23 @@ OUT = Path(os.environ.get("EXP054_OUT", _ROOT / "outputs" / "exp054_kimi_sibling
 DIFF = Q52.DIFF
 
 
-def load_kimi():
-    z = np.load(OUT / "kimi_scores.npz", allow_pickle=False)
+def load_scores(path=OUT / "kimi_scores.npz"):
+    z = np.load(path, allow_pickle=False)
     off, sc = z["offsets"], z["scores"]
     assert np.isfinite(sc).all()
     return {k: sc[off[i]:off[i + 1]] for i, k in enumerate(z["ids"].tolist())}
 
 
-def main():
+def main(kimi=None, tag="kimi", extra=None):
+    """kimi: id -> per-token scores of the model under test (default: ntl-kimill's); extra: name -> other such
+    scores, added as one more feature set (rows scored by all of them)."""
     train = X.load_train()
-    kimi = load_kimi()
-    keep = train.id.astype(str).isin(kimi).to_numpy()
-    print(f"ntl-kimill scored {keep.sum()} / {len(keep)} train texts", flush=True)
+    kimi = load_scores() if kimi is None else kimi
+    extra = extra or {}
+    keep = train.id.astype(str).isin(kimi).to_numpy().copy()
+    for v in extra.values():
+        keep &= train.id.astype(str).isin(v).to_numpy()
+    print(f"{tag} scored {keep.sum()} / {len(keep)} train texts", flush=True)
     base = np.load(Path(os.environ.get("EXP054_BASE", "base.npz")))
     zl_all, ll_all = base["zl"], base["ll"]
     train = train[keep].reset_index(drop=True)
@@ -67,14 +72,16 @@ def main():
     dfl = (K[DIFF] - fl[DIFF]).to_numpy(np.float64)
     dq38 = (K[DIFF] - q38[DIFF]).to_numpy(np.float64)
     ki, g55 = list(lab).index("kimi-k3"), list(lab).index("gpt-5.5")
-    print("kimi-linear lp_mean by class: " + ", ".join(f"{l[:14]} {K.lp_mean[y == c].mean():.3f}"
+    print(f"{tag} lp_mean by class: " + ", ".join(f"{l[:14]} {K.lp_mean[y == c].mean():.3f}"
                                                          for c, l in enumerate(lab)), flush=True)
     pair = np.isin(y, [ki, g55])
+    gpt = [i for i, l in enumerate(lab) if l.startswith("gpt")]
     for nm, col in (("lp_mean", K.lp_mean), ("lp_mean - q4b", K.lp_mean - R.lp_mean),
                     ("lp_mean - flash", K.lp_mean - fl.lp_mean), ("lp_mean - q38", K.lp_mean - q38.lp_mean)):
         a = col.to_numpy()
         print(f"AUC kimi-k3 vs rest from {nm}: {roc_auc_score(y == ki, a):.3f}; vs gpt-5.5 only: "
-              f"{roc_auc_score(y[pair] == ki, a[pair]):.3f}", flush=True)
+              f"{roc_auc_score(y[pair] == ki, a[pair]):.3f}; OpenAI vs rest: {roc_auc_score(np.isin(y, gpt), a):.3f}",
+              flush=True)
     h = X.HIS["entropy_ref"]
     p_stage = X.blend(zl, ll, 0.20, 1.0, h)
     print(f"stack {score(zl.argmax(1)):.4f}, + GLM stage {score(p_stage):.4f}; kimi recall after the stage "
@@ -82,19 +89,24 @@ def main():
     sets = {"kimi": k, "kimi+d(q4b)": np.hstack([k, dq4]), "kimi+d(q4b)+d(flash)": np.hstack([k, dq4, dfl]),
             "kimi+d(q4b,flash,q38)": np.hstack([k, dq4, dfl, dq38]),
             "kimi+q4b+glm": np.hstack([k, R.to_numpy(np.float64), F512[:, :n54]])}
+    sets = {nm.replace("kimi", tag): v for nm, v in sets.items()}
+    if extra:
+        E = [pd.DataFrame(X.features([v[i] for i in ids], texts, 160))[names] for v in extra.values()]
+        sets[f"{tag}+d(q4b)+" + "+".join(extra)] = np.hstack([k, dq4] + [e.to_numpy(np.float64) for e in E]
+                                                            + [(K[DIFF] - e[DIFF]).to_numpy(np.float64) for e in E])
     heads = {}
     for nm, A in sets.items():
         heads[f"{nm} lr"] = X.oof_head(A, y, folds, 0.05)
         heads[f"{nm} gbm"] = X.mix(heads[f"{nm} lr"], X.oof_gbm(A, y, folds))
     for nm, v in heads.items():
         pk = v.argmax(1)
-        print(f"{nm:28s} head alone {score(pk):.4f}, kimi recall {np.mean(pk[y == ki] == ki):.3f}", flush=True)
+        print(f"{nm:28s} head alone {score(pk):.4f}, kimi recall {np.mean(pk[y == ki] == ki):.3f}, gpt-5.5 recall "
+              f"{np.mean(pk[y == g55] == g55):.3f}", flush=True)
     P = np.exp(zl)
-    gpt = [i for i, l in enumerate(lab) if l.startswith("gpt")]
     stage_rows = np.zeros(len(y), bool)
     stage_rows[np.argsort(-P[:, X.GLM].sum(1), kind="stable")[:int(0.20 * len(y))]] = True
     w0 = 1.0 / X.match_temperature(zl, h)
-    rules = {"kimi mass": P[:, ki], "kimi+gpt mass": P[:, [ki] + gpt].sum(1)}
+    rules = {"kimi mass": P[:, ki], "kimi+gpt mass": P[:, [ki] + gpt].sum(1), "gpt mass": P[:, gpt].sum(1)}
     for nm, v in heads.items():
         for rn, m in rules.items():
             for cover in (0.10, 0.20, 0.40):
@@ -105,7 +117,8 @@ def main():
                     p[sel] = (zl[sel] + W * w0 * v[sel]).argmax(1)
                     g = paired_bootstrap(y, p, p_stage, prompts, n=500)
                     print(f"{nm:28s} {rn:13s} cover {cover:.2f} W {W:.1f}: {g[0]:+.4f} [{g[1]:+.4f},{g[2]:+.4f}] "
-                          f"kimi recall {np.mean(p[y == ki] == ki):.3f}", flush=True)
+                          f"kimi recall {np.mean(p[y == ki] == ki):.3f}, gpt-5.5 {np.mean(p[y == g55] == g55):.3f}",
+                          flush=True)
 
 
 if __name__ == "__main__":

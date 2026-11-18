@@ -762,3 +762,294 @@ numbers in this table are directly comparable. Outputs go to `outputs/expNNN_<sl
     evidence instead of the three hard rules); team 0.699 (last submission 01:59). So soft typography is probably
     ~-0.002 against the hard rules.
   - ozertuu's 10:02 version: v44 verbatim. Bar still 0.701.
+- 12:21 UTC: pushed **ntl-gossll** (kaggle/glmll/build_gossll.py; private CPU session, internet on, no GPU quota).
+  - Same kernel as ntl-kimill: build_kimill.py now takes a model spec; the ntl-kimill notebook rebuilds byte-identical.
+  - Model: ggml-org's gpt-oss-20b MXFP4 GGUF (12.1 GB, Apache 2.0, not gated, sha256 27cd6c43... checked after
+    download), scored in a harmony final-channel turn after the default system message and an empty user turn.
+  - Why: an OpenAI-family reference for kimi-k3's main confusion (gpt-5.5) and the GPT classes. Untried before.
+  - Evaluation: experiments/exp055_goss_ll.py (exp054's protocol, now generic, plus a "gpt mass" rule; it adds the Kimi
+    scores as one more feature set when both are in).
+  - 12:22 UTC: ntl-kimill still running (since 09:29); no Code-tab change since 10:21.
+- 15:25 UTC Code tab (watcher):
+  - dhananjayk2609's "Style Fingerprints + LLM Ensemble" entered the top 5; it is v44 with every cell SAME (team 0.701).
+    ozertuu's 15:24 version is v44 verbatim.
+  - areebbb's "0.701 | Read the Fingerprints" (team 0.701, last submission 11-15 22:20) is v44 plus a config cell for
+    section 19 and a mined habit-veto cell. It is a submitted ladder of single changes, with scores still pending:
+    - 38a: vetoes;
+    - 38b: style + TF-IDF residual;
+    - 38c: style + TF-IDF residual at strength 0.15;
+    - 38d: style + TF-IDF residual with vetoes.
+  - areebbb's notes:
+    - The GLM stage gets ~2.1 h after the stack. Fixed costs are 1,350 + 1,820 s for the two models plus ~0.031 s per
+      token, so it fits ~22% of the test, not the 30% cap.
+    - Its train OOF peaks at 20% cover.
+    - Mined vetoes add ~+0.001 TF-IDF OOF.
+    - 0.701 code scored 0.701 in 3 notebooks and the 0.696 code scored 0.696/0.695/0.696, so a +0.002 change is
+      visible on the LB.
+  - Consequence for a Kimi stage in v44: it would take GPU time from the GLM stage. That stage's OOF is flat from 15% to
+    20% cover (+0.030 vs +0.0315), so losing a few points of GLM cover costs little.
+- 18:26 UTC Code tab (watcher): flexonafft's "Kiro v44 Reproduction + Residual after GLM" is now second.
+  - It is v44 with only the post-stage cell changed. The cell rebuilds the GLM stage's blend (z + w * ll, from the
+    stage's saved features) and starts the sibling residual from it, so the stage's moves out of GLM are kept instead of
+    undone.
+  - Team score 0.701 (last submission 10:47 UTC), so this version scored <= 0.701.
+  - kirderf's v45, which protected the V1 rows, had ~0.697. Keeping the stage's moves out of GLM is not a lever.
+  - No team between 0.702 and 0.72 has public code.
+- 20:03 UTC: **exp054 result: Kimi-Linear is not a kimi-k3 sibling. Dropped.**
+  - Run: ntl-kimill finished at 20:02. It scored 2,562 / 2,699 train texts in 10.4 h on 4 CPUs (~8 tokens/s), with no
+    non-finite rows. Files: outputs/exp054_kimi_sibling_ll/ (scores, log, oof.log).
+  - Raw likelihood: kimi-k3 passages are among the LEAST likely under Kimi-Linear (lp_mean -3.10, 17th of 18). The AUC
+    of kimi vs rest is 0.354, and of kimi vs gpt-5.5 is 0.453. This is the same failure as the Qwen3.8-27B sibling in
+    exp052.
+  - Contrasts: "lp - q4b" reaches AUC 0.722 for kimi vs rest. The Qwen3.8-27B scores, run through the same code as a
+    stand-in, give 0.743, so this is a generic big-chat-model vs base-model effect, not a sibling signal.
+  - Out of fold (stand-in stack 0.6486, + GLM stage 0.6822 on these rows): kimi recall after the stage is 0.466. The best
+    of 270 blend configs reaches +0.0050 [+0.0012, +0.0089] with kimi recall 0.47-0.51, against a 0.6+ target.
+  - The q38 stand-in's best was +0.0032 through the same code, so the gain is within max-of-many noise.
+  - Not worth a 22 GB model and GPU time taken from the GLM stage.
+- 21:27 UTC Code tab (watcher): prvsiyan's "The Prompt Is Not the Author" is third. It is a copy of v44 with an added
+  input-preflight cell, and it says it has not been scored yet. The bar is still 0.701.
+- 22:02 UTC Code tab (watcher): lightningv08's "0.701 | Apex Style + GLM-5.3 + Qwen3.8-27B LoRA" is second (17:48
+  version).
+  - It ports alexchilton's scored v44 copy with these changes:
+    - the GLM stage is fixed at the top 15% of texts and 90k token positions (no time-boxing);
+    - the comp_stack worker is switched off, since it is dead in the reference, matching our note;
+    - Qwen3.8-27B reads full passages;
+    - the assets are pinned.
+  - Team best 0.701 (last submission 15:48), so this version is <= 0.701. Deterministic cover is not a lever above
+    0.701 either.
+- 22:55 UTC: **exp055 result: gpt-oss-20b carries no OpenAI signal. Dropped.**
+  - Run: ntl-gossll finished at 22:54. It scored only 1,676 / 2,699 texts in 10.4 h (MXFP4 on 4 CPUs, ~5.4 tokens/s),
+    with no non-finite rows. Files: outputs/exp055_goss_ll/.
+  - Raw likelihood:
+    - OpenAI vs rest: AUC 0.485 (chance).
+    - gpt-5.5 vs kimi-k3: 0.558.
+    - The most likely class under gpt-oss is claude-opus-4-6, then glm-5.3-flash and gpt-5.6-luna.
+  - Contrasts: "lp - q4b" reaches 0.59 for OpenAI vs rest, below the Kimi contrast.
+  - Out of fold on the 1,676 texts (stack 0.6424, + GLM stage 0.6749; kimi recall 0.446):
+    - The best of 297 configs is "goss+q4b+glm lr, kimi mass, cover 0.20, W 1.5" at +0.0085 [+0.0009, +0.0166], with
+      kimi recall 0.47.
+    - Its gain comes from the q4b + GLM columns that every "+q4b+glm" set carries; the same set with q38 or kimi scores
+      is also in the top.
+    - Adding the Kimi scores (goss+d(q4b)+kimi) does not help.
+  - Conclusion: neither open same-family chat model (Kimi-Linear, gpt-oss) nor Qwen3.8-27B (exp052) gives sibling
+    evidence. Only the GLM pair works, because those open weights are the generators.
+- 11-17 00:33 UTC: the public top is now **0.702**: lightningv08's "0.702 | Soft Typography + GLM + Qwen3.8-27B LoRA"
+  (team 0.702, last submission 11-16 17:53; same code as the 22:02 pull).
+  - It is alexchilton's v44 port with:
+    - the GLM stage fixed at the top 15% of texts and 90k token positions;
+    - the comp_stack worker off;
+    - Qwen3.8-27B on full passages;
+    - pinned assets;
+    - apex_postprocess at strength 0.10 with soft typography (forbidden classes' probabilities x 0.05, not 0).
+  - It uses the same inputs as our ntl-kiro-gbm.
+- 00:35 UTC: **the account's weekly GPU quota is used up**: 76,401 s of 75,600 s (64,654 s at 11-16 01:30). The extra
+  ~3.3 h came from the casmi26-om-* kernels of another project (11-16 12:38-19:57), not this one. Pay-to-scale is on,
+  so any GPU push from here would be paid.
+  - No GPU commits for this competition until the 11-21 00:00 UTC refresh.
+  - Already-committed versions can still be submitted: the hidden-test rerun does not use the quota.
+- 07:36 UTC Code tab (watcher): areebbb's "0.701 | Read the Fingerprints" (01:46 version) is second; areebbb's team is
+  now 0.702 (last submission 01:16).
+  - This version is NTL-40: the 0.702's code cells unchanged plus Open Pool sibling specialists. Inside Google, OpenAI
+    and Anthropic, a char_wb(1-5) + word(1-2) TF-IDF SGD model trained on open pool v17 only (<= 12k per model)
+    re-splits the lab's mass with weight 0.20, rescaled by the stack's within-lab spread. It runs on CPU beside the GLM
+    stage, before apex_postprocess.
+  - They claim OOF 0.550 -> 0.593 on lightningv08's reader OOF. Its LB score is not stated; the 0.702 is their
+    resubmission of lightningv08's code (NTL-39).
+  - ozertuu's "Residual Sibling Gating Apex Better!" is v44 byte for byte; mercurydust changes one cell of v44.
+  - exp056 replicates the specialists on our stand-in (below).
+- 08:20 UTC: **exp056 (Open Pool sibling specialists, NTL-40) out of fold.**
+  - Code: experiments/exp056_pool_sibling_spec.py, our transcription of spec_worker.py / spec_apply. It goes through the
+    0.702's tail: GLM stage at cover 0.15, then apex_postprocess (residual 0.10, GLM rows kept, soft typography 0.05)
+    reading the specialised logits. Logs: outputs/exp056_pool_sibling_spec/.
+  - The replica is exact: within-lab accuracy of the specialists alone is 0.622 / 0.555 / 0.658
+    (Google / OpenAI / Anthropic), the same as NTL-40's 0.62 / 0.55 / 0.66.
+  - Two bases, gain over the 0.702 tail (his head; the gbm head is the same within 0.001):
+
+    | base | stack | within-lab stack acc. | w 0.10 | w 0.20 | w 0.30 |
+    |---|---|---|---|---|---|
+    | stand-in (exp015 core, has pool SVC) | 0.6465 | 0.69 / 0.71 / 0.79 | +0.0035 [-0.004,+0.010] | +0.0038 [-0.004,+0.012] | +0.0015 |
+    | oofbank nested_calibrated s3 | 0.5438 | weak, like NTL-40's base | +0.024 [+0.017,+0.031] | +0.037 [+0.027,+0.046] | +0.047 |
+
+    The gain shrinks as the base gets stronger inside the lab. The real stack is likely between the two, so the LB
+    gain is likely between +0.000 and +0.02. NTL-40's own LB score is the deciding number.
+  - NTL-40's rescale (w x the stack's within-lab spread / its OOF base's) gives w 0.27-0.34 on the stand-in, which is
+    worse there than w 0.10-0.20 unscaled.
+  - Variants: no 12k cap, proxy routes dropped, match_weight sample weights, alpha 1e-5 / 5e-7. All are within
+    +-0.004 of NTL-40's settings on both bases; none is better on both.
+  - In-fold train rows (weight 5) in the specialists: +0.0038 / +0.0023 on the stand-in, +0.037 on the bank at
+    w 0.10 / 0.20. Same as without them.
+- 14:00 UTC: areebbb renamed NTL-40 to "0.702 | Read the Fingerprints" with its code unchanged. Their team best is
+  still 0.702 (last submission 02:03), so NTL-40 most likely scored 0.702.
+  - That means the specialists add about +0.000 on the board, matching the stand-in, which is close to the real stack.
+  - The 0.702 line has now scored 0.702 four times (lightningv08, alexchilton, NTL-39, NTL-40).
+- 14:10 UTC: the user asked to submit the most promising candidate.
+  - Choice: NTL-40's code unchanged (kaggle/nlm/build_ntl40.py -> ntl-702-spec, private). Its public 0.702 equals the
+    plain 0.702, and the specialists are OOF-positive on both bases, which may help on the private board.
+  - The GPU quota is used up (76,401 / 75,600 s, pay-to-scale on), so there is no commit run. Plan:
+    - a CPU kernel (ntl-702-spec-paths) checks every pinned path and checkpoint under our mount layout and runs the
+      specialist worker;
+    - then a QUICK_SAVE version (no run, no GPU quota) is submitted.
+  - If Kaggle refuses a never-run version, the submission waits for the 11-21 quota refresh.
+  - All 26 datasets and 9 kernel inputs are unchanged since NTL-40 scored (latest update 11-13).
+- 14:10 UTC: **a never-run version cannot be submitted.**
+  - ntl-702-spec v1 was QUICK_SAVEd. Kaggle then ran an 8 s HTML render only, and the GPU meter stayed at 76,401 s.
+  - CreateCodeSubmission answered 400 FAILED_PRECONDITION "Submission not allowed: Did not find provided Notebook
+    Output File". Nothing was submitted.
+  - The CPU check ntl-702-spec-paths v1 passed: 47 pinned paths and 51 checkpoints resolve under our mount layout
+    (datasets/, models/, notebooks/), and spec_worker.py ran on the commit test (37,980 / 59,737 / 56,765 pool rows,
+    550 s on 4 CPUs).
+  - Armed kaggle/tools/refresh_push_submit.sh for 2026-11-21 00:05 UTC. It pushes ntl-702-spec only with more than
+    2 h of free GPU quota left, then submits the committed version and waits for the score.
+- 14:18 UTC Code tab (watcher): no new technique.
+  - evgendvorkin's "Deep Forensic EDA with Analogie" (0.702 code + 6 new EDA cells) and heliosli's "lv683 a15" (the
+    0.702 byte for byte) now sort above areebbb's 0.702. Several plain "ntl-702" copies follow.
+  - All of these teams are at 0.702 on the LB CSV. 151 teams are at 0.702 and 335 at 0.701. The public line is still
+    0.702.
+- 16:19 UTC Code tab (watcher): no new technique.
+  - alexchilton's "Name That LLM 0.702: All Public + What Failed" (08:47 version) is the 0.702 plus a chart cell and
+    a mount check.
+  - areebbb's 15:36 version of NTL-40 has the same code. Its notes still say the score is not known.
+- 17:00 UTC: **exp057: an LLM trained on the open pool only works as a sibling specialist.**
+  - Our TPU kernel ntl-tpu-op8 (11-04) trained a Qwen3-8B-Base LoRA24 classifier on open pool v13 (stage 1, 190,588
+    rows). Its log-probs on every train row (s1_on_train.npy, 0.602 alone) never saw an official row.
+  - Leakage check: v13 already had flag_near_train_prompt all False, and its max_sim_train_prompt has the same
+    distribution as v17 (max 0.40). The only v13 rows missing from v17 are 284 mislabelled ones, so s1 is out of fold.
+  - Within-lab accuracy alone (Google / OpenAI / Anthropic):
+
+    | model | Google | OpenAI | Anthropic |
+    |---|---|---|---|
+    | op8 s1 | 0.642 | 0.683 | 0.782 |
+    | TF-IDF specialists | 0.622 | 0.555 | 0.658 |
+    | stand-in stack | 0.693 | 0.712 | 0.788 |
+
+  - On top of NTL-40 as published, after the 0.702 tail (outputs/exp057_pool_llm_spec/combo.log):
+
+    | w | stand-in gain [95% CI] | per fold | bank |
+    |---|---|---|---|
+    | 0.30 | +0.0081 [+0.0011, +0.0159] | +.006 +.017 +.006 +.000 +.013 | +0.034 |
+    | 0.40 | +0.0121 [+0.0041, +0.0204] | +.011 +.019 +.013 +.002 +.017 | +0.032 |
+    | 0.50 | +0.0114 [+0.0026, +0.0197] | +.015 +.017 +.006 +.000 +.020 | +0.032 |
+
+    As an 18-class member it does less (+0.006 at a 0.10).
+  - The stand-in holds OOF versions of the same q14v5 / q8v5 / ll8v5 readers the 0.702 runs, so op8's pool-only model
+    adds information they lack.
+  - Caution: op8's stage-2 adapters, swapped into q8v5's slot, scored -0.008 on the LB (11-05). This use is different:
+    the stage-1 model as an added specialist with lab mass kept.
+  - Built ntl-702-spec-op8 (kaggle/nlm/build_ntl40.py): NTL-40 + section 19b.
+    - After the GLM stage, if at least 40 min of the 9 h remain, op8s1_worker.py runs infer.py's own l24_predict
+      (extracted from infer.py's source) with op8v1_s1 on the test.
+    - It adds the centred within-lab log-probs at w 0.40, rescaled by the stack's within-lab spread against the
+      stand-in's (1.708 / 1.993 / 2.345). Any failure leaves NTL-40's scores.
+    - The commit run smoke-tests the worker on the T4s.
+  - CPU check ntl-702-spec-op8-paths pushed: pinned paths incl. op8v1_s1, and the worker on CPU on 3 train rows
+    against the TPU's own predictions.
+  - A second pool-only LLM is available: ntl-tpu-ll8q14's Llama-3.1-8B member ll8op1 finished both stages before its
+    Qwen-14B member failed (tensor-type error). Its pool v14 has no rows near train prompts either.
+    - ll8op1_s1 alone 0.595.
+    - On top of NTL-40 (stand-in): ll8 w 0.20 +0.004, w 0.40 -0.001. mean(op8, ll8) at w 0.30-0.70 gives
+      +0.004..+0.006, and op8 w 0.40 + ll8 w 0.10-0.30 gives +0.008, both below op8 alone (+0.012).
+    - The bank likes all of them (+0.030..+0.035). Kept op8 alone: it is better and needs one 8B pass at test time.
+- 16:51 UTC Code tab (watcher): flexonafft's "NTL | Kiro v44 Reproduction + Residual after GLM" (14:08 version) is the
+  0.702 plus a mount-form rewrite cell. Its one change: the GLM stage selects rows by glm-5.3 + glm-5.3-flash +
+  claude-fable-5 mass (--select-classes). Their team is 0.702, the same as the plain code (fable-mass selection lost
+  OOF on 11-15). areebbb submitted again at 09:58; still 0.702.
+  - CPU check ntl-702-spec-op8-paths:
+    - v1 caught a real bug: the extracted l24_predict lacked its @torch.no_grad() decorator, so the LoRA merge
+      failed. Fixed by extracting the function node with its decorators (ast).
+    - v2 passes: 49 paths resolve. On CPU fp16 the worker matches the TPU's s1_on_train predictions on 3 train rows
+      (argmax 16 / 11 / 0 both, max |log-prob diff| 0.098), 192 s.
+  - Armed the second refresh_push_submit.sh job: ntl-702-spec-op8 at 2026-11-21 00:10 UTC, five minutes after
+    ntl-702-spec. The commit smoke-tests the worker on the T4s; a failed commit submits nothing.
+
+2026-11-17 18:06 UTC: areebbb re-submitted at 11:36 UTC (team best still 0.702). Their public notebook
+0-702-read-the-fingerprints is byte-identical to the 16:19 pull (sha256 46f442c8cbd09657), so nothing new to fork.
+- 18:08 UTC: **exp057 q14: a second, larger pool-only LLM confirms op8's gain** (outputs/exp057_pool_llm_spec/q14.log).
+  - ntl-tpu-q14v16 (TPU, 11-15) had finished unexamined: Qwen3-14B-Base LoRA (keep 27, the n14b recipe), stage 1 on
+    open pool v16 (223,840 rows, match-weighted, 1.46 of 2 epochs in 5.7 h), then official-row stage 2 (OOF 0.6417).
+    Pool v16/v17 have no rows near train prompts (flag_near_train_prompt all False, max_sim_train_prompt <= 0.40),
+    so its stage-1 scores on train (q14op16_s1_on_train.npy) are out of fold like op8's.
+  - s1 alone 0.6146 (op8 0.6020), argmax agreement with op8 0.683. Within lab: Google 0.660, OpenAI 0.688,
+    Anthropic 0.792 (op8 0.642 / 0.683 / 0.782).
+  - On top of NTL-40 (stand-in | bank):
+
+    | specialist | stand-in [95% CI] | bank |
+    |---|---|---|
+    | op8 w 0.40 | +0.0121 [+0.0041, +0.0204] | +0.032 |
+    | q14 w 0.40 | +0.0115 [+0.0019, +0.0219] | +0.039 |
+    | mean(op8, q14) w 0.50 | +0.0118 [+0.0026, +0.0211] | +0.039 |
+    | op8 w 0.40 + q14 w 0.20 | +0.0129 [+0.0034, +0.0226] | +0.040 |
+
+  - Two independently trained pool-only models give the same gain, so op8's +0.012 is not a fluke of one model.
+    Both together add only +0.001 on the stand-in for a second (14B) pass at test time: ntl-702-spec-op8 stays as
+    armed.
+- 18:10 UTC: exp057 perlab / labmass (outputs/exp057_pool_llm_spec/perlab.log, labmass.log), all against NTL-40 + op8
+  w 0.40 (stand-in 0.6828):
+  - Per-lab weights (one lab at 0.20 or 0.60, the others at 0.40): -0.004..+0.001 on the stand-in; the uniform
+    0.40 is at the optimum. The GLM pair as a fourth lab (op8 alone 0.587 inside the pair): +0.000..-0.002.
+  - Moving the lab masses with the pool-only model's lab log-probs (stage recomputed, since its row selection
+    follows the lab masses): op8 a 0.05-0.30 -0.003..+0.001; q14 a 0.05 +0.0034 [+0.0007, +0.0063] (4/5 folds),
+    a 0.10 +0.003; mean a 0.10 +0.003. The bank gains +0.02..+0.04 (its lab accuracy is far lower: 0.82 vs 0.87).
+    Small, needs the 14B pass at test time: not added.
+- 18:12 UTC: exp057 stage2 (outputs/exp057_pool_llm_spec/stage2.log): the same TPU models after their official-row
+  stage 2 (fold models, out of fold) as the specialist. Alone 0.6305 / 0.6417, within lab a little sharper (op8
+  Google 0.672, q14 OpenAI 0.708). On top of NTL-40 (stand-in): op8 stage 2 w 0.60 +0.0111, q14 stage 2 w 0.60
+  +0.0134 [+0.0023, +0.0244], against stage 1's +0.0121 / +0.0115 at w 0.40. Four separately trained LLMs all give
+  +0.008..+0.013, so the effect is robust; none beats op8 stage 1 by more than noise, and stage-2 adapters have
+  failed on the LB before (op8r 11-05). The armed ntl-702-spec-op8 is unchanged.
+- 18:57 UTC: at the user's call ("push op8 now", any pay-to-scale charge accepted, control skipped), stopped both
+  11-21 refresh_push_submit.sh jobs and pushed ntl-702-spec-op8 v1 (code sha 6e89b844a5479699) for its GPU commit.
+  The API showed 76,401 / 75,600 s GPU used before the push. The submission follows if the commit completes.
+- 19:13 UTC: ntl-702-spec-op8 v1 commit COMPLETE (18:57-19:12): 25 GLM segments + CUDA runtime + tokenizers
+  verified, TF-IDF specialist smoke ok, op8 worker on the T4s (adapter op8v1_s1, bf16 redo 0) 37 s for the 3 rows,
+  op8 apply smoke ok (spreads 1.708 / 1.992 / 2.345 on the smoke logits). The commit's submission.parquet is the
+  upstream placeholder (all gpt-5.5; the rerun sets KAGGLE_IS_COMPETITION_RERUN and takes the full path).
+  Submitted as #111 (sub 58479754).
+- 19:20 UTC: **next notebook while #111 scores: ntl-702-spec-op8-q14lab** (exp057 both / labgate).
+  - On top of NTL-40 + op8 w 0.40, q14 s1 moving the lab masses (a 0.05) adds +0.0034 [+0.0007, +0.0063] when it
+    runs before the GLM stage (outputs/exp057_pool_llm_spec/both.log) and +0.0026 [+0.0004, +0.0052] (4/5 folds)
+    after it (both_after_stage.log, the notebook's order); bank +0.015. q14 also inside the lab adds nothing more.
+  - Only rows with a close lab decision can flip: scoring the quarter of rows with the smallest top-2 lab margin
+    keeps the whole +0.0026 (labgate.log; stand-in lab margin quantiles 10/25/50/75/90% = 0.35 / 1.01 / 2.61 / 4.34 /
+    5.31). So the 14B pass needs ~1,000 of the ~4,000 test rows.
+  - build_ntl40.py: ntl-702-spec-op8-q14lab = ntl-702-spec-op8 + section 19c (q14s1_worker.py = op8's worker with
+    q14op16_s1's recipe: keep 27, layers 2-27, max_len 447, eos 151643, default final norm as op8 since the same
+    trainer). After op8, with >= 40 min of the 9 h left, it scores the lowest-margin quarter and moves each lab's mass
+    by a 0.05 (rescaled by the median lab margin against the stand-in's 2.61), each row's normaliser kept. The commit
+    run also checks the 14B path against q14op16_s1_on_train.npy on the 3 shortest train rows (argmax equal, max
+    |diff| < 0.6) and fails otherwise. ntl-702-spec-op8 itself is unchanged (sha 6e89b844).
+  - Local check (p74/q14_parity.py): the notebook's q14_rows / q14_apply on the stand-in's train scores select
+    675 / 2,699 rows (the 25% quantile) and match exp057's lab_shift to 1.4e-6 with the worker's rows and labels
+    shuffled; 30 top labels change.
+  - CPU check ntl-702-spec-op8-q14lab-paths pushed 19:20 UTC (pins, and the 14B worker on CPU on 3 train rows).
+- 19:30 UTC: CPU check ntl-702-spec-op8-q14lab-paths v1 PASS: 51 paths + 51 checkpoints resolve (q14op16_s1 and
+  op8v1_s1 found under the namespaced kernel mount); q14s1_worker.py (infer.py's l24_predict, CPU fp16, 1 bf16
+  redo batch) on the 3 shortest train rows: argmax [9, 11, 0] = the TPU's, max |log-prob diff| 0.086, 460 s.
+  The 14B path reproduces the TPU model. Ready to push for its GPU commit once #111 has scored.
+- 20:22 UTC Code tab (watcher): lightningv08's new "0.702 | Apex Style 15% + GLM + Qwen3.8-27B LoRA" (15:41 UTC,
+  pulled to p74/dl_lightning_apex15) is their 0.702 (V59) with one change in v1_stage.py: the GLM stage covers up to
+  22% of rows / 130,000 token positions (was 15% / 90,000). Their team is still 0.702 on the LB. Our OOF had cover
+  15% +0.030, 20% +0.0315, 30% +0.032 (11-13), so at most ~+0.002, for more stage time before op8 / q14 run. Not
+  ported into ntl-702-spec-op8-q14lab.
+
+- 2026-11-17 22:07 UTC: LB change, ozertuu 0.701 -> 0.702 (team best; no new public notebook in the Code-tab watcher). Public top still 0.702.
+
+- 2026-11-18 01:21 UTC: **#111 ntl-702-spec-op8 scored 0.684** (NTL-40 0.702, so -0.018). The op8 step ran (any failure
+  falls back to NTL-40's scores). Post-mortem (01:21-01:30 UTC):
+  - Inputs identical to areebbb's scored run: no dataset source updated after 11-13, no kernel source after 11-11
+    (op8 11-04). Label orders identical (sorted 18 in infer.py, op8 summary.json, the notebook). infer.py's
+    l24_predict writes each batch back to its original rows (`Z_[b] = r`), so length sorting and the two-GPU split
+    cannot misalign rows; FINAL_LOGITS are log of averaged softmaxes (log-probs, like the stand-in).
+  - exp057 `postmortem` (outputs/exp057_pool_llm_spec/postmortem.log, stand-in, NTL-40 tail 0.6705): op8 w 0.20 /
+    0.40 / 1.00 = +0.004 / +0.012 / +0.009; op8 rows shuffled (no information) w 0.40 = -0.047..-0.055, shuffled
+    within the true lab -0.080..-0.091. So on test op8 was far weaker than on train but not pure noise; the spread
+    clip (w 0.20..1.00) cannot turn +0.012 into -0.018.
+  - Prompt-overlap flattery not found (p75/proximity.py, outputs/exp057_pool_llm_spec/proximity.log): nearest pool v13
+    passage per train row cosine 0.10-0.35 (pool capped at 0.30); op8's train accuracy by prompt-proximity quintile
+    0.598 / 0.607 / 0.572 / 0.633 / 0.600, corr 0.10 (stand-in 0.06).
+  - Noise: #111 changed ~8% of rows; -0.030 against the expected +0.012 is > 3 SD.
+  - Cause unproven (rerun logs are not exposed). It is the second LB loss of an ntl-tpu-op8 model whose train OOF
+    looked good (11-05 op8r member swap -0.008), and pool-only signals have all landed below the stand-in on the LB
+    (NTL-40 TF-IDF specialists +0.004 OOF -> +0.000 LB). **Conclusion: train OOF does not validate pool-trained
+    models; the pool-only LLM specialist track is closed.** ntl-702-spec-op8-q14lab (+0.0026 on the same evaluation,
+    plus op8) will not be pushed.

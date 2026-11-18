@@ -122,17 +122,18 @@ int main(int argc, char ** argv) {
 }
 '''
 
-RUN = f'''import glob, hashlib, os, re, shutil, struct, subprocess, sys, time
+def run_cell(s):
+    return f'''import glob, hashlib, os, re, shutil, struct, subprocess, sys, time
 import numpy as np, pandas as pd
 T0 = time.time()
-W = '/kaggle/temp/kimi'
+W = '/kaggle/temp/{s["work"]}'
 os.makedirs(W, exist_ok=True)
 os.makedirs('/kaggle/working/out', exist_ok=True)
 print('cpus', os.cpu_count(), 'disk free GB', shutil.disk_usage('/kaggle/temp').free // 2**30,
       'ram GB', os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES') // 2**30, flush=True)
 assert shutil.disk_usage('/kaggle/temp').free > 30 * 2**30, 'not enough disk for the GGUF'
 
-# llama.cpp: the newest release tag (kimi_linear landed in b7957)
+# llama.cpp: the newest release tag ({s["tag_note"]})
 refs = subprocess.run(['git', 'ls-remote', '--tags', 'https://github.com/ggml-org/llama.cpp'],
                       capture_output=True, text=True, check=True).stdout
 tag = 'b%d' % max(int(x) for x in re.findall(r'refs/tags/b(\\d+)$', refs, re.M))
@@ -151,12 +152,12 @@ print(f'built in {{time.time() - T0:.0f}} s', flush=True)
 
 # the GGUF, checked against the hub's LFS sha256
 from huggingface_hub import hf_hub_download
-gguf = hf_hub_download({REPO!r}, {FILE!r}, local_dir=W + '/gguf')
+gguf = hf_hub_download({s["repo"]!r}, {s["file"]!r}, local_dir=W + '/gguf')
 h = hashlib.sha256()
 with open(gguf, 'rb') as f:
     for blk in iter(lambda: f.read(1 << 24), b''):
         h.update(blk)
-assert h.hexdigest() == {SHA!r}, h.hexdigest()
+assert h.hexdigest() == {s["sha"]!r}, h.hexdigest()
 print(f'gguf ok ({{os.path.getsize(gguf) / 2**30:.1f}} GB) at {{time.time() - T0:.0f}} s', flush=True)
 
 # texts in a fixed shuffled order, so a run cut by the time cap still covers every class
@@ -169,7 +170,7 @@ with open(W + '/texts.bin', 'wb') as f:
         b = str(df.text.iloc[i] if isinstance(df.text.iloc[i], str) else '').encode('utf-8')
         f.write(struct.pack('<I', len(b)) + b)
 budget = 10.5 * 3600 - (time.time() - T0)   # the session limit is 12 h
-r = subprocess.run([W + '/ntl-kll', gguf, W + '/texts.bin', {PREFIX!r}, W + '/out.bin', '160', str(os.cpu_count()),
+r = subprocess.run([W + '/ntl-kll', gguf, W + '/texts.bin', {s["prefix"]!r}, W + '/out.bin', '160', str(os.cpu_count()),
                     str(int(budget))])
 print('ntl-kll exit code', r.returncode, flush=True)
 
@@ -187,17 +188,20 @@ for i in order:
     pos += 4 + 16 * m
 off = np.concatenate([[0], np.cumsum([len(s) for s in rows])])
 sc = np.concatenate(rows) if rows else np.zeros((0, 4), np.float32)
-np.savez('/kaggle/working/out/kimi_scores.npz', ids=np.array(ids, dtype='U64'), offsets=off, scores=sc)
+np.savez('/kaggle/working/out/{s["out"]}', ids=np.array(ids, dtype='U64'), offsets=off, scores=sc)
 print(f'{{len(ids)}} / {{len(df)}} texts, {{len(sc)}} tokens, non-finite rows {{int((~np.isfinite(sc)).any(1).sum())}}, '
       f'{{time.time() - T0:.0f}} s', flush=True)
 
-# first readout: per-class mean log p, and kimi-k3 vs rest AUC on it
+{s["readout"]}'''
+
+
+KIMI_READOUT = '''# first readout: per-class mean log p, and kimi-k3 vs rest AUC on it
 from sklearn.metrics import roc_auc_score
 lab = df.set_index('id').loc[ids, 'model'].to_numpy()
 lpm = np.array([s[:, 0].mean() if len(s) else np.nan for s in rows])
 hm = np.array([s[:, 1].mean() if len(s) else np.nan for s in rows])
 ok = np.isfinite(lpm)
-print(pd.DataFrame({{'model': lab[ok], 'lp_mean': lpm[ok], 'ent_mean': hm[ok]}}).groupby('model').mean().sort_values('lp_mean').round(3).to_string())
+print(pd.DataFrame({'model': lab[ok], 'lp_mean': lpm[ok], 'ent_mean': hm[ok]}).groupby('model').mean().sort_values('lp_mean').round(3).to_string())
 for name, x in (('lp_mean', lpm), ('lp_mean - ent_mean', lpm + hm)):
     print('AUC kimi-k3 vs rest from', name, round(roc_auc_score(lab[ok] == 'kimi-k3', x[ok]), 3))
     g = ok & np.isin(lab, ['kimi-k3', 'gpt-5.5'])
@@ -205,25 +209,31 @@ for name, x in (('lp_mean', lpm), ('lp_mean - ent_mean', lpm + hm)):
 '''
 
 
-def build():
-    cells = [{"cell_type": "markdown", "metadata": {}, "source":
-              f"# {NAME}\n\nPer-token likelihood of every train passage under the open Kimi-Linear-48B-A3B-Instruct "
+
+KIMI = {"name": NAME, "repo": REPO, "file": FILE, "sha": SHA, "prefix": PREFIX, "work": "kimi",
+        "tag_note": "kimi_linear landed in b7957", "out": "kimi_scores.npz", "readout": KIMI_READOUT,
+        "md": "Per-token likelihood of every train passage under the open Kimi-Linear-48B-A3B-Instruct "
               "(Q3_K_M GGUF, llama.cpp on CPU, empty-user assistant turn, first 160 tokens): a sibling likelihood "
-              "for kimi-k3 (exp054)."},
+              "for kimi-k3 (exp054)."}
+
+
+def build(spec=KIMI):
+    name = spec["name"]
+    cells = [{"cell_type": "markdown", "metadata": {}, "source": f"# {name}\n\n" + spec["md"]},
              {"cell_type": "code", "metadata": {}, "outputs": [], "execution_count": None,
               "source": "%%writefile /tmp/ntl-kll.cpp\n" + SCORER},
-             {"cell_type": "code", "metadata": {}, "outputs": [], "execution_count": None, "source": RUN}]
+             {"cell_type": "code", "metadata": {}, "outputs": [], "execution_count": None, "source": run_cell(spec)}]
     nb = {"cells": cells, "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
                                        "language_info": {"name": "python"}}, "nbformat": 4, "nbformat_minor": 4}
-    out = HERE / NAME
+    out = HERE / name
     out.mkdir(exist_ok=True)
-    (out / f"{NAME}.ipynb").write_text(json.dumps(nb, indent=1, ensure_ascii=False), encoding="utf-8")
-    meta = {"id": f"omerfarukmerey/{NAME}", "title": NAME, "code_file": f"{NAME}.ipynb", "language": "python",
+    (out / f"{name}.ipynb").write_text(json.dumps(nb, indent=1, ensure_ascii=False), encoding="utf-8")
+    meta = {"id": f"omerfarukmerey/{name}", "title": name, "code_file": f"{name}.ipynb", "language": "python",
             "kernel_type": "notebook", "is_private": True, "enable_gpu": False, "enable_tpu": False,
             "enable_internet": True, "dataset_sources": [], "competition_sources": ["name-that-llm"],
             "kernel_sources": [], "model_sources": [], "keywords": []}
     (out / "kernel-metadata.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
-    print(f"built {NAME}: {len(cells)} cells")
+    print(f"built {name}: {len(cells)} cells")
 
 
 if __name__ == "__main__":

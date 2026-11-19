@@ -16,6 +16,26 @@ OOF bank.
                         +0.032 on the OOF bank. Any failure leaves NTL-40's scores.
     ntl-702-spec-op8-paths  its CPU check: the pinned paths incl. op8v1_s1, and op8s1_worker.py on CPU (fp16) on 3
                         train rows against the TPU's own s1_on_train.npy
+    ntl-702-gbm         NTL-40 with the GLM stage's head = exp050 gbmpair: his head (NTL-40's ll_model.json byte for
+                        byte) averaged 50/50 with depth-2 boosted trees on his features + 12 per-token Flash / GLM-5.3
+                        contrasts, through build_graft.py's v1_stage.py edits (as #108 graft-gbm 0.697 vs the graft's
+                        0.696, #109 kiro-gbm 0.701 = kiro); a failure of the extra evidence falls back to his head
+    ntl-702-gbm-c22     + lightningv08's apex-style-15 stage budget (cover 0.22, 130,000 token rows; public 0.702 alone)
+    ntl-lv702-gbm       the same head on lightningv08's public 0.702 (soft typography, pulled 2026-11-18), i.e. NTL-40
+                        without the Open Pool specialists: #113 (ntl-702-gbm) scored 0.690 and #111 (+ op8) 0.684, so
+                        this checks whether NTL-40's own specialists cost both (its 0.702 on the Code tab can be NTL-39)
+    ntl-lv702a-gbm      the same head on lightningv08's apex-style-15 (public 0.702: the soft typography + a reciprocal
+                        prompt-pair adjustment and typography penalty 0.15), held until #114 (ntl-lv702-gbm) scores
+    ntl-lv704-gbm       the same head on lightningv08's public 0.704 (GLM Fable Routing, pulled 2026-11-19: the soft
+                        typography + stage rows ranked by GLM mass + 0.35 min(claude-fable-5 mass, GLM mass), post-stage
+                        probabilities for the typography checks of GLM winners, penalty 0.15); #114 put the head at
+                        +0.000 on the 0.702
+    ntl-lv704-gbm-c22   + the stage at cover 0.22 / 130,000 token rows: the routed Fable rows no longer push GLM rows out
+                        of the fixed 15% / 90k budget
+    ntl-lv704-w125      the public 0.704 with his head (no gbmpair) and the stage's blend weight 1.25 W, sanity guard 0.32:
+                        bill123987's public ntl706w (pulled 2026-11-19) made only that change to the 0.702 soft
+                        typography and scored 0.704; exp058 puts W 1.25 at +0.0015 [-0.0000, +0.0033] with his head
+                        under the Fable routing (cover 0.15), and flat with gbmpair
 
     python kaggle/nlm/build_ntl40.py
 """
@@ -23,6 +43,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import build_lv694 as L
+from build_graft import patched_stage
 from build_l681 import text
 
 HERE = Path(__file__).resolve().parent
@@ -30,6 +52,21 @@ UPSTREAM = HERE / "upstream_areebbb_ntl40_1117.ipynb"
 UPSTREAM_SHA = "57e6db91e16cb672"
 META = HERE / "upstream_areebbb_ntl40_1117.meta.json"
 URL = "https://www.kaggle.com/code/areebbb/0-702-read-the-fingerprints"
+SOFT = HERE / "upstream_lightningv08_702_soft_1118.ipynb"
+SOFT_SHA = "a30c63085c331510"
+SOFT_META = HERE / "upstream_lightningv08_702_soft_1118.meta.json"
+SOFT_URL = "https://www.kaggle.com/code/lightningv08/0-702-soft-typography-glm-qwen3-8-27b-lora"
+APEX = HERE / "upstream_lightningv08_702_apex15_1118.ipynb"
+APEX_SHA = "f9948b633b22bd5e"
+APEX_META = HERE / "upstream_lightningv08_702_apex15_1118.meta.json"
+APEX_URL = "https://www.kaggle.com/code/lightningv08/0-702-apex-style-15-glm-qwen3-8-27b-lora"
+FABLE = HERE / "upstream_lightningv08_704_fable_1119.ipynb"
+FABLE_SHA = "75736a7af0b431f8"
+FABLE_META = HERE / "upstream_lightningv08_704_fable_1119.meta.json"
+FABLE_URL = "https://www.kaggle.com/code/lightningv08/0-704-glm-fable-routing-qwen3-8-27b-lora"
+BILL = HERE / "upstream_bill123987_ntl706w_1119.ipynb"
+BILL_SHA = "529d1d9036a04fa7"
+BILL_URL = "https://www.kaggle.com/code/bill123987/ntl706w"
 
 CHECK = r'''import glob, os, subprocess, sys
 import pinned_assets as A
@@ -496,6 +533,121 @@ def build():
                               "on 3 train rows against the TPU's own q14op16_s1_on_train.npy."},
                              pinq[0], pipe[0], infer[0], code(Q14_WORKER), code(Q14_CHECK)])
     write("ntl-702-spec-op8-q14lab-paths", checkq, meta("ntl-702-spec-op8-q14lab-paths", upq, False))
+
+    for name, wide in (("ntl-702-gbm", False), ("ntl-702-gbm-c22", True)):
+        write(name, gbm_fork(nb, name, wide), meta(name, up, True))
+
+    raw = SOFT.read_bytes()
+    assert hashlib.sha256(raw).hexdigest()[:16] == SOFT_SHA, "lightningv08's upstream changed"
+    soft = json.loads(raw)
+    for c in soft["cells"]:
+        c["source"] = text(c)
+        if c["cell_type"] == "code":
+            c["outputs"], c["execution_count"] = [], None
+    # NTL-40 = these code cells + charts + the Open Pool specialists (sections 15 and 19) + a final gate
+    ntl = {c["source"] for c in nb["cells"] if c["cell_type"] == "code"}
+    assert all(c["source"] in ntl for c in soft["cells"] if c["cell_type"] == "code")
+    base = (f"lightningv08's public [0.702 | Soft Typography + GLM + Qwen3.8-27B LoRA]({SOFT_URL}) (pulled 2026-11-18; "
+            "NTL-40 without areebbb's Open Pool specialists)")
+    write("ntl-lv702-gbm", gbm_fork(soft, "ntl-lv702-gbm", False, base),
+          meta("ntl-lv702-gbm", json.loads(SOFT_META.read_text(encoding="utf-8")), True))
+
+    raw = APEX.read_bytes()
+    assert hashlib.sha256(raw).hexdigest()[:16] == APEX_SHA, "lightningv08's apex upstream changed"
+    apex = json.loads(raw)
+    for c in apex["cells"]:
+        c["source"] = text(c)
+        if c["cell_type"] == "code":
+            c["outputs"], c["execution_count"] = [], None
+    # apex-style-15 = the soft typography's code + a reciprocal prompt-pair adjustment and penalty 0.15 (2 cells)
+    sc = {c["source"] for c in soft["cells"] if c["cell_type"] == "code"}
+    assert sum(c["source"] not in sc for c in apex["cells"] if c["cell_type"] == "code") == 2
+    base = (f"lightningv08's public [0.702 | Apex Style 15% + GLM + Qwen3.8-27B LoRA]({APEX_URL}) (pulled 2026-11-18: "
+            "the soft typography + a reciprocal prompt-pair adjustment and typography penalty 0.15)")
+    write("ntl-lv702a-gbm", gbm_fork(apex, "ntl-lv702a-gbm", False, base),
+          meta("ntl-lv702a-gbm", json.loads(APEX_META.read_text(encoding="utf-8")), True))
+
+    raw = FABLE.read_bytes()
+    assert hashlib.sha256(raw).hexdigest()[:16] == FABLE_SHA, "lightningv08's 0.704 upstream changed"
+    fable = json.loads(raw)
+    for c in fable["cells"]:
+        c["source"] = text(c)
+        if c["cell_type"] == "code":
+            c["outputs"], c["execution_count"] = [], None
+    # the 0.704 = the soft typography's code with the stage's row ranking and apex_postprocess changed (3 cells)
+    assert sum(c["source"] not in sc for c in fable["cells"] if c["cell_type"] == "code") == 3
+    base = (f"lightningv08's public [0.704 | GLM Fable Routing + Qwen3.8-27B LoRA]({FABLE_URL}) (pulled 2026-11-19)")
+    for name, wide in (("ntl-lv704-gbm", False), ("ntl-lv704-gbm-c22", True)):
+        write(name, gbm_fork(fable, name, wide, base), meta(name, json.loads(FABLE_META.read_text(encoding="utf-8")), True))
+
+    raw = BILL.read_bytes()
+    assert hashlib.sha256(raw).hexdigest()[:16] == BILL_SHA, "bill123987's upstream changed"
+    # ntl706w's stage = the soft typography's stage with the GLM-mass order kept and only these two lines changed
+    bill = [text(c) for c in json.loads(raw)["cells"] if c["cell_type"] == "code"]
+    st = [c for c in soft["cells"] if c["cell_type"] == "code" and c["source"].startswith(GBM_STAGE)][0]["source"]
+    for a, b in W125:
+        st = st.replace(a, b)
+    assert st in bill, "ntl706w's stage is not the soft stage with W125"
+    write("ntl-lv704-w125", w125_fork(fable, "ntl-lv704-w125", base),
+          meta("ntl-lv704-w125", json.loads(FABLE_META.read_text(encoding="utf-8")), True))
+
+
+GBM_STAGE = "%%writefile /kaggle/temp/v1/v1_stage.py\n"
+GBM_LL = "Path('/kaggle/temp/v1/ll_model.json').write_text('"
+WIDE = (("    ap.add_argument('--max-cover', type=float, default=0.15, help='at most this fraction of the test is scored')\n",
+         "    ap.add_argument('--max-cover', type=float, default=0.22, help='at most this fraction of the test is scored')\n"),
+        ("    n_sel = min(int((cum <= 90000).sum()), int(a.max_cover * len(ids)))\n",
+         "    n_sel = min(int((cum <= 130000).sum()), int(a.max_cover * len(ids)))\n"))
+
+
+W125 = (("    ap.add_argument('--max-changed', type=float, default=0.25,\n",
+         "    ap.add_argument('--max-changed', type=float, default=0.32,\n"),
+        ("    w = model['W'] / tp\n", "    w = 1.25 * model['W'] / tp  # ours: stronger likelihood blend\n"))
+
+
+def w125_fork(nb, name, base):
+    """base's cells with the GLM stage's blend weight at 1.25 W and the changed-predictions guard at 0.32."""
+    cells = [dict(c) for c in nb["cells"]]
+    st = [i for i, c in enumerate(cells) if c["cell_type"] == "code" and c["source"].startswith(GBM_STAGE)]
+    assert len(st) == 1
+    src = cells[st[0]]["source"]
+    for a, b in W125:
+        assert src.count(a) == 1, a
+        src = src.replace(a, b.replace("ours", "ours (bill123987's ntl706w, exp058)"))
+    cells[st[0]] = dict(cells[st[0]], source=src)
+    what = (f"the GLM stage blends estopadilla's likelihood head at 1.25 W (sanity guard 0.32), as bill123987's public "
+            f"[ntl706w]({BILL_URL}) did on the 0.702 soft typography")
+    return dict(nb, cells=[{"cell_type": "markdown", "metadata": {}, "source":
+                            f"# {name}\n\n{base}, every other code cell unchanged; {what}. Private."}] + cells)
+
+
+def gbm_fork(nb, name, wide, base=None):
+    """NTL-40's cells (or base's) with the exp050 gbmpair head in the GLM stage (and, if wide, a 22% stage budget)."""
+    cells = [dict(c) for c in nb["cells"]]
+    model = json.loads((L.HEADS / "gbmpair.json").read_text(encoding="utf-8"))
+    assert model["format"] == "ntl-v1-ll-model-1" and model.get("gbm") and model.get("extra")
+    ll = [c for c in cells if c["cell_type"] == "code" and c["source"].startswith(GBM_LL)]
+    st = [i for i, c in enumerate(cells) if c["cell_type"] == "code" and c["source"].startswith(GBM_STAGE)]
+    assert len(ll) == 1 and len(st) == 1
+    his = json.loads(ll[0]["source"][len(GBM_LL):].rsplit("')", 1)[0])
+    assert his == model["fallback"], "NTL-40's head is not gbmpair's fallback"
+    ll[0]["source"] = ("# ours (exp050): estopadilla's head averaged with boosted trees (gbmpair); his head is its fallback\n"
+                       f"Path('/kaggle/temp/v1/ll_model.json').write_text({json.dumps(model)!r})\n")
+    src = patched_stage(cells[st[0]]["source"])
+    for a, b in WIDE if wide else ():
+        assert src.count(a) == 1, a
+        src = src.replace(a, b)
+    cells[st[0]] = dict(cells[st[0]], source=src)
+    cells[st[0] + 1:st[0] + 1] = [{"cell_type": "code", "metadata": {}, "execution_count": None, "outputs": [],
+                                   "source": "%%writefile /kaggle/temp/v1/extra_features.py\n"
+                                             + L.EXTRA_SRC.read_text(encoding="utf-8")}]
+    what = ("the GLM stage's head is our exp050 gbmpair (his head averaged 50/50 with boosted trees on per-token "
+            "Flash / GLM-5.3 contrasts; his head is the fallback)")
+    if wide:
+        what += ", and the stage scores up to 22% of the test / 130,000 token rows (lightningv08's apex-style-15)"
+    base = base or f"areebbb's public [0.702 | Read the Fingerprints]({URL}) (NTL-40, pulled 2026-11-17)"
+    return dict(nb, cells=[{"cell_type": "markdown", "metadata": {}, "source":
+                            f"# {name}\n\n{base}, every other code cell unchanged; {what}. Private."}] + cells)
 
 
 if __name__ == "__main__":

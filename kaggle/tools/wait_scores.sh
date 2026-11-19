@@ -5,6 +5,7 @@ cd /Users/ofm/Desktop/Kaggle/Name-that-LLM
 K=(/opt/anaconda3/bin/python $S/tools/kgl.py)
 while true; do
   out=$($K competitions submissions name-that-llm --csv 2>/dev/null | grep -v Warning | sed -n "2,$(($1+1))p")
-  echo "$out" | grep -q PENDING || { echo "$(date -u +%H:%M) SCORED:"; echo "$out" | cut -d, -f1,4-; break; }
+  # an empty reply (API hiccup) is not a result: on 11-18 it ended the wait at 14:42 with nothing scored
+  [ -n "$out" ] && ! echo "$out" | grep -q PENDING && { echo "$(date -u +%H:%M) SCORED:"; echo "$out" | cut -d, -f1,4-; break; }
   sleep 300
 done

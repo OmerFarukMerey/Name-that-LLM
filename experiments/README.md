@@ -1053,3 +1053,116 @@ numbers in this table are directly comparable. Outputs go to `outputs/expNNN_<sl
     (NTL-40 TF-IDF specialists +0.004 OOF -> +0.000 LB). **Conclusion: train OOF does not validate pool-trained
     models; the pool-only LLM specialist track is closed.** ntl-702-spec-op8-q14lab (+0.0026 on the same evaluation,
     plus op8) will not be pushed.
+
+- 2026-11-18 12:00-13:18 UTC: user: "continue your submissions to beat the highest public score", then "there is gpu
+  quota please use that" (API: 77,132 / 75,600 s used, pay-to-scale on; told the user, proceeding at their call).
+  - Code tab / LB: still no public notebook above 0.702. New today: ozertuu's "Residual Sibling Gating Apex Better!"
+    = the 0.702's code with docstrings only; mathleteutd's wider-GLM notebooks (budget up to 120k rows / cover 0.20 by
+    time left; team best 0.701); ddsleep v38 (hard 1e-5 vetoes + 2 extra rules, 25% / 180k; team best 0.701).
+    lightningv08's apex-style-15 (cover 0.22, 130k) = 0.702, so a wider stage alone is +0.000 on the LB.
+  - Candidate: **ntl-702-gbm** (build_ntl40.py) = NTL-40 with the GLM stage head = exp050 gbmpair. NTL-40's ll_model.json
+    is byte for byte gbmpair's fallback (estopadilla's head), so only the tree half is new; LB record of that head:
+    graft 0.696 -> 0.697 (#108), kiro 0.701 -> 0.701 (#109). Same v1_stage.py edits as #108/#109 (build_graft.
+    patched_stage); a failure of the extra evidence falls back to his head = NTL-40. 3 code cells differ from NTL-40.
+    Next: ntl-702-gbm-c22 (+ apex-style-15's 0.22 / 130k budget) while it scores.
+  - Pushed ntl-702-gbm v1 13:18 UTC.
+  - 13:33 commit COMPLETE (no errors; 25 GLM segments verified, specialist smokes ok, extra_features.py written).
+    **Submitted 13:34 as #112 (sub 58511598).** Pushed ntl-702-gbm-c22 v1 13:34 (its commit only; submitted after #112
+    scores, one at a time).
+  - **#112 errored on the hidden rerun** ("unhandled error while rerunning your code", no log). wait_scores.sh had
+    ended at 14:42 on an EMPTY API reply (bug, fixed: an empty reply no longer counts as scored), so the error time is
+    only bounded to 13:34-15:45, i.e. inside the hours of main inference that precede our three changed cells; the
+    patch cannot raise past his fallback, and the stage's 25% change guard cannot trip at 15% cover. The c22 commit was
+    queued 13:34-14:15 behind the account's casmi26-om-tas / -nlt kernels (started 12:28), which explains the queue and
+    most of the GPU-seconds jump (77,132 -> 80,741 s). Treated as transient: **retried the same version 15:47 as #113
+    (sub 58516237).** If it errors again, the failure is ours or environmental and the c22 variant waits.
+  - 15:48 ntl-702-gbm-c22 v1 commit COMPLETE (767 s in the notebook; no errors, 25 GLM segments verified, smokes ok,
+    extra_features.py written). Held: submitted only after #113 scores (one at a time; a second error would hit it too).
+
+- 2026-11-18 21:45 UTC: **#113 (ntl-702-gbm v1 retry) scored 0.690**, -0.012 against NTL-40's listed 0.702. The rerun
+  completed, so the GLM stage ran (cell 59 runs v1_stage.py with check=True: a failed stage fails the notebook), and the
+  gbm half needs only CPU pair features from the stage's own token scores (no extra model pass), so neither a skipped
+  stage nor a time-out explains it. A head change can only move the two GLM classes on <= 15% of rows; the same head
+  was +0.001 / +0.000 on the graft / kiro (#108 / #109). Our image, machine shape and every input match areebbb's
+  commit (kernel-metadata diff empty; docker sha256 de153e6d...).
+  - Common factor of our two NTL-40 forks (#111 op8 0.684, #113 gbm 0.690): NTL-40 itself. Its code = lightningv08's
+    0.702 soft typography (all 29 code cells present unchanged) + charts + the Open Pool TF-IDF specialists (cells
+    25/26/35) + a final gate. Its header says "Its score will be added here once it is known", still so in its latest
+    version (ran 15:36 UTC 11-17, same code), and the Code tab shows a notebook's best score over its versions: the
+    0.702 can be NTL-39 (the 0.702 code resubmitted). Hypothesis: NTL-40 itself scores ~0.690 (Open Pool specialists
+    ~ -0.012 on the LB, like every other pool-trained signal), gbm is ~0 on top (as on #108 / #109) and op8 ~ -0.006.
+    The API does not expose per-version scores and the browser extension is not connected, so it is tested on the LB:
+  - **ntl-lv702-gbm** (build_ntl40.py) = #113's notebook minus the charts, the specialists and the final gate, i.e.
+    lightningv08's public 0.702 (pulled 21:50, sha a30c6308) with the gbmpair head. ~0.702 confirms the hypothesis
+    (and gives gbm on the 0.702); ~0.690 puts the loss on the head with this stage. Pushed v1 21:52 UTC (GPU
+    81,509 / 75,600 s, pay-to-scale on, at the user's call). ntl-702-gbm-c22 (NTL-40 + gbm + 22% stage) is dropped:
+    it carries the specialists.
+  - Correction: lightningv08's apex-style-15 in its current version is the soft typography + a reciprocal prompt-pair
+    adjustment (TF-IDF neighbours, strength 0.35) + typography penalty 0.15; its stage is the standard 0.15 / 90k.
+  - 21:57 ntl-lv702-gbm v1 commit COMPLETE (no errors, 25 GLM segments verified, extra_features.py written).
+    **Submitted 21:57 as #114 (sub 58526708)**; 2 submissions left on 11-18.
+  - Next notebook built, not pushed: **ntl-lv702a-gbm** = lightningv08's apex-style-15 (pulled 21:50, sha f9948b63; =
+    the soft typography + reciprocal prompt-pair adjustment + penalty 0.15, public 0.702) with the gbmpair head; 2 code
+    cells differ from #114. Held until #114 scores: ~0.690 would rule the head out on this stage, and each GPU push is
+    now over the free quota. Neither change has evidence above 0.702 (both public variants 0.702), so it is a
+    tie-level candidate unless #114 shows the head adds on this line.
+
+- 2026-11-19 12:01 UTC: **#114 (ntl-lv702-gbm) scored 0.702.** The hypothesis holds: NTL-40's Open Pool TF-IDF
+  specialists cost ~0.012 on the LB (#113 = the same notebook with them, 0.690), so NTL-40 itself is ~0.690 and its
+  Code-tab 0.702 is NTL-39. The gbm head is +0.000 on the 0.702 line (#108 +0.001, #109 +0.000): the head is neutral on
+  the LB on all three bases. **Every pool-trained signal has now lost on the LB** (op8 member -0.008, op8 specialist
+  ~-0.006 on top of NTL-40, NTL-40's TF-IDF specialists -0.012), although the TF-IDF specialists were +0.004 OOF on our
+  stand-in and +0.037 on the reader OOF bank. #114 tied the public top at submission; by 12:06 UTC the Code tab has
+  lightningv08's **0.704 "GLM Fable Routing + Qwen3.8-27B LoRA"** (ran 00:12 UTC 11-19): the bar is now > 0.704.
+- 14:14 UTC: user: "submit the c22 one too, don't wait". **Submitted ntl-702-gbm-c22 v1 as #115 (sub 58563775)**
+  (committed 11-18, no new GPU). It is #113 + the 22% / 130k stage, so against #113 (0.690) it measures the wider stage
+  alone; expected ~0.690 since it carries the specialists (told the user).
+- 14:16 UTC: **lightningv08's 0.704** (pulled 14:14, sha 75736a7a, same inputs / image as the 0.702) = the soft
+  typography's code with three changes:
+  - **Fable routing:** the GLM stage ranks rows by GLM mass + 0.35 * min(claude-fable-5 mass, GLM mass) (the stage's
+    head is 18-class, so it can move Fable <-> GLM).
+  - **Post-stage probabilities for the typography checks of GLM winners.**
+  - **Typography penalty 0.15.**
+  - The stage stays fixed at 15% / 90k, so routed Fable rows displace GLM rows from the budget.
+  - Built **ntl-lv704-gbm** (+ the gbmpair head, +0.000 on the 0.702) and **ntl-lv704-gbm-c22** (+ the 22% / 130k stage,
+    so routing adds rows instead of displacing GLM ones; an earlier apex-style-15 version ran that budget to 0.702, so
+    it fits the time). Pushed both v1 at 14:16 UTC (GPU 81,798 / 75,600 s, pay-to-scale on, at the user's call).
+    Expected: about 0.704 each; the wide one has the larger upside.
+- 14:53 UTC: both commits COMPLETE (25 GLM segments verified, extra_features.py written, 3-row submissions ok).
+  **Submitted ntl-lv704-gbm-c22 as #116 (sub 58565655) and ntl-lv704-gbm as #117 (sub 58565660)** at 14:54; with #115
+  pending, 2 submissions are left on 11-19. #116 vs #117 measures the wider stage on the Fable-routed line; #115 vs #113
+  measures it on NTL-40.
+- 14:58 UTC Code tab (watcher): mzishran's "How the Ensemble Predicts" (ran 08:36, 1 vote) is second, below the 0.704.
+  Same inputs; = the 0.704 with apex_postprocess changed: it keeps the GLM stage's moves from a GLM base winner to
+  claude-fable-5 (stage Fable-vs-GLM logit gain >= 0.30 and >= 0.25 after) instead of resetting them to the residual's
+  label, and drops the 0.704's post-stage probabilities for GLM winners' typography; plus a count chart. Score not
+  exposed (<= 0.704 by the sort). Keeping the stage's moves out of GLM was not a lever on the kiro line (0.701 / ~0.697);
+  not forked unless its score shows above 0.704.
+- 18:20 UTC Code tab (watcher): bill123987's **ntl706w** (ran 11:50) and evgendvorkin's EDA notebook (ran 11:35) are
+  listed with the 0.704. The LB CSV gives both teams 0.704 (mzishran 0.703), so the Code-tab bar is still > 0.704; ties
+  are ordered by votes. ntl706w (sha 529d1d90, kept as kaggle/nlm/upstream_bill123987_ntl706w_1119.ipynb) = the 0.702
+  soft typography with **one stage change: blend weight 1.25 W** (sanity guard 0.25 -> 0.32), and no Fable routing,
+  post-stage probabilities or penalty 0.15. Plus two cells copied from our public 0.663 notebook (a chart and the
+  mount check). So two different stage changes each took the soft typography from 0.702 to 0.704.
+- **exp058** (experiments/exp058_stage_w_fable.py, outputs/exp058/run.log): exp050's W comparison rerun under both stage
+  orders. Out of fold on the stand-in (0.6465); "vs his W 1" is his head at W 1 with the same order and cover:
+
+  | order, cover | his W 1.25 | his W 1.5 | gbmpair W 1 | gbmpair W 1.25 |
+  |---|---|---|---|---|
+  | GLM mass, 0.15 | +0.0018 [-0.0004, +0.0041] | +0.0014 | +0.0037 | +0.0038 |
+  | GLM mass, 0.22 | +0.0021 [-0.0004, +0.0048] | +0.0010 | +0.0063 | +0.0055 |
+  | Fable routing, 0.15 | +0.0015 [-0.0000, +0.0033] | +0.0014 | +0.0033 | +0.0038 |
+  | Fable routing, 0.22 | +0.0025 [-0.0000, +0.0055] | +0.0017 | +0.0055 | +0.0056 |
+
+  - W 1.25 helps his head under both orders (its OOF size matches ntl706w's +0.002 on the LB). With gbmpair, W is flat.
+    gbmpair's +0.003 to +0.006 OOF has been +0.000 on the LB three times.
+  - The Fable routing alone is +0.0001 / +0.0007 OOF (cover 0.15 / 0.22). The OOF has no typography step, so the
+    0.704's other two changes are not measured here.
+- 18:24 UTC: built **ntl-lv704-w125** (kaggle/nlm/build_ntl40.py; code sha 46987849) = the public 0.704 with his head
+  and only ntl706w's two stage lines (1.25 W, guard 0.32), so it merges the two public 0.704 recipes. The guard cannot
+  trip at cover 0.15 anyway. Pushed v1 (GPU 82,301 / 75,600 s, pay-to-scale on). Expected: 0.704-0.706. Both changes
+  are +0.002 on the LB from the same base, and they act on different steps (stage weight vs stage rows / typography).
+- 18:30 UTC: ntl-lv704-w125 v1 commit COMPLETE at 18:29 (FAST_COMMIT, 25 GLM segments verified, 3-row submission ok;
+  the pulled source has the 1.25 W, Fable routing and penalty 0.15 lines). **Submitted as #118 (sub 58574595)**; 1
+  submission left on 11-19. Watcher p78/wait_fewer.sh 4 replaces wait_scores.sh 3, which would have tracked
+  #116-#118 and missed #115.

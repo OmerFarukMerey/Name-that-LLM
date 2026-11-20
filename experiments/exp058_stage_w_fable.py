@@ -7,7 +7,10 @@ exp050 found W 1.25 +0.002-0.003 with estopadilla's head and about neutral with 
 This reruns that comparison under both orders, at cover 0.15 (the public stage) and 0.22 (our c22), against
 his head at W 1 with the same order and cover (paired prompt bootstrap).
 
-    python -I experiments/exp058_stage_w_fable.py
+revert: as apex_postprocess (corrected=False) does, a stage row whose blended label is not GLM goes back to its pre-stage
+label (here the stack's argmax; the public notebook uses its sibling residual's), so only moves into GLM count.
+
+    python -I experiments/exp058_stage_w_fable.py [revert]
 """
 
 import sys
@@ -26,6 +29,9 @@ FABLE = X.LABELS.index("claude-fable-5")
 COVERS = (0.15, 0.22)
 
 
+REVERT = "revert" in sys.argv[1:]
+
+
 def blend(zl, ll, cover, W, h_ref, fable):
     """v1_stage.py: the top `cover` rows by priority get argmax(zl + (W / T') ll)."""
     mass = np.exp(zl[:, X.GLM]).sum(1)
@@ -34,6 +40,8 @@ def blend(zl, ll, cover, W, h_ref, fable):
     w = W / X.match_temperature(zl, h_ref)
     pred = zl.argmax(1)
     pred[sel] = (zl[sel] + w * ll[sel]).argmax(1)
+    if REVERT:
+        pred = np.where(np.isin(pred, X.GLM), pred, zl.argmax(1))
     return pred
 
 

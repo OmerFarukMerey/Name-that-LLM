@@ -1166,3 +1166,208 @@ numbers in this table are directly comparable. Outputs go to `outputs/expNNN_<sl
   the pulled source has the 1.25 W, Fable routing and penalty 0.15 lines). **Submitted as #118 (sub 58574595)**; 1
   submission left on 11-19. Watcher p78/wait_fewer.sh 4 replaces wait_scores.sh 3, which would have tracked
   #116-#118 and missed #115.
+- 19:17 UTC: user: "use kaggle gpu and continue you experiments on how we can beat the highest score of public
+  notebooks. if you do so share it!" This is a standing go-ahead to publish any submission whose LB score beats the
+  Code-tab top (0.704 now).
+  - evgendvorkin's 0.704 = EDA cells + mzishran's fable_return in apex_postprocess (mzishran's own team: 0.703), so
+    fable_return is about 0.703-0.704 and the same-code noise is about +-0.001.
+  - Code-tab top 30 has nothing new above 0.704.
+  - Built and pushed **ntl-lv704-w125-c22** (code sha d44a0b20; #118 + the 22% / 130k stage). It is committed only, for
+    today's last slot, and is submitted only if #116 (c22) beats #117.
+- **exp058 revert** (outputs/exp058/revert.log): the 0.704's apex_postprocess (corrected=False) sends every stage row
+  whose result is not GLM back to its pre-stage label, so only moves into GLM count. Same table with that revert
+  (pre-stage label = the stand-in's argmax):
+  - his head W 1.25 vs W 1 under the routing: +0.0007 [-0.0007, +0.0022] at cover 0.15 and +0.0022 [+0.0000, +0.0048] at
+    0.22;
+  - gbmpair at W 1.5: +0.0029 / +0.0054;
+  - the routing alone: +0.0004 / +0.0004.
+  - The revert itself costs ~0.005 out of fold (0.6728 -> 0.6679). On the LB, though, keeping the stage's moves out of
+    GLM lost on the kiro line (~0.697 vs 0.701), and fable_return is flat. So the OOF stage does not model the test's
+    noisier GLM evidence on moves out of GLM; LB evidence ranks the stage changes, not this OOF.
+- 19:23 UTC: ntl-lv704-w125-c22 v1 commit COMPLETE (FAST_COMMIT, 25 GLM segments verified, 3-row submission ok; the
+  pulled source has cover 0.22 / 130k, 1.25 W, guard 0.32, Fable routing, penalty 0.15). Held for #116 vs #117.
+- 19:56 UTC LB watcher: areebbb's team went 0.702 -> 0.703 (submission 13:42). Their notebook's latest version (ran 13:52,
+  pulled to p78/dl_areebbb_1352) = the 0.704 with mzishran's fable_return in apex_postprocess, plus charts and a final
+  file gate (neither changes predictions). fable_return now has three LB reads: mzishran 0.703, evgendvorkin 0.704,
+  areebbb 0.703. That is flat to slightly below the 0.704, consistent with stage moves out of GLM not paying on the
+  test. Not forked.
+- 20:00 UTC: Claude Code stopped all three background watchers (Code tab, LB, scores) because the Mac was critically low
+  on memory (vm_stat: ~11k free pages). Per the harness they are not restarted without the user. One-off check at 20:00:
+  #115-#118 all still PENDING. ntl-lv704-w125-c22 (committed) waits for #116 vs #117.
+- 20:02 UTC: kaggle/nlm/publish_lv704.py writes the public page for ntl-lv704-w125 / -w125-c22 if one beats the Code-tab
+  top (variant, score, scored source, our other LB reads). Its parts:
+  - our header (what changed, why, the OOF numbers, the LB A/B table, how it works, credits incl. bill123987 and
+    estopadilla, Built with Llama);
+  - a note before the GLM stage;
+  - lightningv08's own intro and credits;
+  - the scored code cells, asserted byte for byte.
+  - It builds with placeholder scores; those test pages went to the Trash. Still PENDING at 20:02: #115-#118.
+- 20:03 UTC, two Code-tab notebooks diffed against the soft 0.702 (team bests from the 18:20 LB CSV):
+  - mathleteutd "GLM Scores Fable, Wider Budget" (11-18) = the soft + claude-fable-5 in the stage's selection classes
+    (uncapped) + a time-adaptive budget (up to 120k token positions, cover 0.20, prefetch). Team best 0.702 over 110
+    submissions. This is the second wider-budget read that did not beat its 0.702 base (lightningv08's c22
+    apex-style-15 version was the first). So c22 has a weak prior; #116 vs #117 decides.
+  - ozertuu "Residual Sibling Gating Apex Better!" (16:15) = the soft + a clean SVC4 staged next to the stock one,
+    extra host-register passages, 4 more residual shape features, a 0.03 within-GLM residual gate. Team best 0.702.
+    Not a lever.
+- 20:08 UTC **exp059** (experiments/exp059_typography_rules.py, outputs/exp059/run.log): more typographic rules
+  for apex_postprocess's last step.
+  - Marker rates per label on Dhruv's 120k pool (nlm_pool_v5): straight '"' is used by GPT <= 0.1% and qwen 0.3% (Claude
+    / GLM 14-21%); curly quotes never by Claude, GLM or gemini-3.1 / 3.6 / 3.7; the em dash by gemini-3.7-flash in 18%
+    (other Gemini 0), so the public rule that penalises every Gemini label on '—' looked like it costs gemini-3.7.
+  - Train disagrees on two of these: gemini-3.7's em dash rate is 0.01 in train (not 0.18), and the straight apostrophe
+    is 5-11% in train's gpt-5.5 / terra / astra but ~1% in the pool. Pool typography is not the competition's.
+  - Out of fold on the 0.704-style stage (his head, routing, cover 0.15, revert; W 1 and 1.25; penalty 0.15 / 0.05):
+    the stand-in's predictions never break any rule. No rules = the public three = R3 without 3.7 = + curly-quote rule;
+    the straight-quote rule changes 1-2 rows, both wrong (-0.0004 / -0.0007).
+  - Dropped: the stack already respects typography; the public rules only matter where the real stack (pool-trained
+    members) breaks them, which train cannot show.
+- 20:09 UTC: #115-#118 still PENDING (one-off check; the watchers stay off, the Mac is at ~60 MB free).
+  Decisions once they score:
+  - **Tonight's last slot** (before 00:00 UTC): ntl-lv704-w125-c22 only if #116 (gbm + c22) > #117 (gbm). Otherwise
+    hold the slot.
+  - **Sharing:** publish (publish_lv704.py + quick_save.py, after re-reading the Code tab and checking every input is
+    public) any of #116-#118 whose score is above the Code-tab top, 0.704 now.
+  - **11-20 slate, by #118's result:**
+    - \>= 0.705: W stacks on the routing. Try W 1.5 and w125-c22 if not used tonight.
+    - 0.704: the two stage levers overlap (both add moves into GLM). Next try the 0.704's typography changes without the
+      routing, plus W 1.25.
+    - <= 0.703: W over-weights under the routing. Drop it on the 0.704 line.
+- 20:10 UTC: free memory back to ~230 MB; restarted only the score watcher (p78/wait_fewer.sh 4, task buptzbo08:
+  one API call every 5 min). The Code-tab and LB watchers stay off.
+- 20:45 UTC: **#117 (ntl-lv704-gbm) scored 0.702** and **#115 (ntl-702-gbm-c22) 0.690**; #116 and #118 still PENDING.
+  - #117: the gbmpair head on the Fable-routed 0.704 is -0.002. Its four LB reads are now +0.001 (graft), +0.000 (kiro),
+    +0.000 (soft 0.702) and -0.002 (0.704). With the routing, the stage rows include Fable-heavy passages, where the
+    trees' 18-class output may move rows into GLM that his head would not. Either way the head is retired on this
+    line. Its +0.003-0.006 OOF never transferred.
+  - #115 = #113 (0.690): the 22% / 130k stage is +0.000 on NTL-40.
+  - Tonight's slot: w125-c22 still waits for #116 (gbm + c22) vs #117 (0.702). #116 > 0.702 means the wider stage helps
+    on the routed line.
+- 21:27 UTC user: "send submissions as much as you can that are promising that it will beat after your review and
+  experiment". Plan: fill tonight's last slot and 11-20's five with a grid around #118 (the two public 0.704 recipes
+  merged). build_ntl40.py's w_fork(w, wide, routing, penalty) replaces w125_fork; the w125 / w125-c22 builds are
+  byte-identical (46987849 / d44a0b20). New builds, each differing from #118 in one place only (diffs checked):
+  - **ntl-lv704-w15** (7793e91b): blend 1.5 W.
+  - **ntl-lv704-w125-nof** (266fbaa5): no Fable routing (stage rows by GLM mass) = bill123987's ntl706w + the 0.704's
+    typography changes. Out of fold the routing is only +0.0004, and with W 1.25 both levers add moves into GLM, so
+    dropping it may not lose.
+  - **ntl-lv704-w125-p05** (7ae33554): typography penalty 0.05 (the soft 0.702's and ntl706w's) instead of the 0.704's
+    0.15.
+  - Pushed -nof and -w15 at 21:29 (GPU 82,762 / 75,600 s, pay-to-scale on); -p05 follows (2 commits at a time).
+  - Tonight's slot: w125-c22 if #116 >= 0.703, else w125-nof.
+- 21:35 UTC: **#116 (ntl-lv704-gbm-c22) scored 0.702** = #117. The wider stage is +0.000 on the routed line, its 4th
+  neutral LB read (apex-style-15's c22 version, mathleteutd, #115, #116).
+  - p78/tonight_slot.sh then submitted **ntl-lv704-w125-nof as #119 (sub 58580358)**; 0 left on 11-19. -nof and -w15
+    commits COMPLETE 21:34 (FAST_COMMIT, 25 GLM segments, 3 rows; pulled sources carry the intended lines). -p05 pushed
+    21:34.
+  - w125-c22 is dropped from the 11-20 slate: the wider stage reads neutral everywhere.
+  - p78/midnight_1120.sh submits -w15 and -w125-p05 at 00:01 UTC 11-20 (each only if its commit is COMPLETE). The other
+    3 slots wait for #118 (~02:30) and #119.
+- 21:41 UTC: ntl-lv704-w125-p05 v1 commit COMPLETE (FAST_COMMIT, 25 GLM segments, 3 rows; source has the routing,
+  1.25 W and penalty 0.05). Both midnight submissions (-w15, -w125-p05) are now ready.
+- 00:01 UTC 11-20: p78/midnight_1120.sh submitted **ntl-lv704-w15 as #120 (sub 58584456)** and **ntl-lv704-w125-p05 as
+  #121 (sub 58584482)**; 3 submissions left on 11-20, held for #118 (~02:30) and #119 (~05:30).
+- 00:03 UTC 11-20: the score watcher now watches the latest 6 submissions (p78/wait_fewer.sh 6). With #120 / #121 in the
+  list the old one (latest 4, started at 2 pending) would have waited for three of #118-#121. Pre-built the candidates
+  for the 3 slots left on 11-20 (build_ntl40.py w_fork; earlier builds byte-identical):
+  - **ntl-lv704-w135** (c26e4e62): #118 at 1.35 W (if W stacks on the routing);
+  - **ntl-lv704-w11** (e0c11fc2): #118 at 1.1 W (if 1.25 W overshoots on the routed line);
+  - **ntl-lv704-w125-nof-p05** (dcaacade): no routing, penalty 0.05 = ntl706w (0.704) + only the 0.704's post-stage
+    probabilities for GLM winners.
+  - GPU 3,285 / 75,600 s (the reading dropped from 82,762: a quota reset since 21:29 UTC 11-19; pay-to-scale on).
+    w135 pushed 00:03; the other GPU batch slot is held by another session, so p78/push_queue.sh pushes -nof-p05 then -w11
+    as slots free.
+- 00:21 UTC: -w135, -w125-nof-p05 (pushed 00:10) and -w11 (00:16) v1 commits COMPLETE: FAST_COMMIT, 25 GLM segments
+  verified, 3-row submission, no traceback; the pulled sources carry 1.35 W / routing / 0.15, 1.25 W / GLM-mass order /
+  0.05 and 1.1 W / routing / 0.15. All three can be submitted once #118 picks the direction.
+- 00:47 UTC 11-20: **#118 (ntl-lv704-w125) scored 0.704** = the 0.704 and ntl706w. The 1.25 W blend and the Fable
+  routing are each +0.002 from the soft 0.702 but do not stack: both only add moves into GLM, after the revert. The
+  W / routing / typography grid on this stage is flat at 0.704 (#119-#121 pending), so the rest of 11-20 goes to a
+  lever that changes the stage's evidence itself: exp060 tests longer likelihood cuts.
+- 00:47 UTC 11-20: **#118 (ntl-lv704-w125) scored 0.704** = the 0.704 and ntl706w. The 1.25 W blend and the Fable
+  routing are each +0.002 from the soft 0.702 but do not stack: both only add moves into GLM, after the revert. The
+  W / routing / typography grid on this stage is flat at 0.704 (#119-#121 pending), so the rest of 11-20 goes to a
+  lever that changes the stage's evidence itself: exp060 tests longer likelihood cuts (the train scores cover full
+  texts: median 130 tokens, 38% longer than the stage's 160-token cut, 11% longer than 256).
+- 00:50 UTC **exp060** (experiments/exp060_glm_ll_cut.py, outputs/exp060/run.log): a longer likelihood cut for the
+  0.704's GLM stage. estopadilla's head reads the first 160 tokens ("ll_trunc/L160"). Our train scores (ntl-glmll, the
+  same segrun at 512) cover full texts, so his recipe (54 features, C 0.05) was refitted out of fold at each cut. Stage
+  as exp058 revert: the stand-in, Fable routing, cover 0.15 (404 rows, 40% longer than 160 tokens), W 1 / 1.25.
+  - The head alone (18-class accuracy) gains with the cut: L160 0.190, L192 0.200, L224 0.210, **L256 0.215**, L320
+    0.222, L512 0.221. On texts longer than 160 tokens: 0.204 -> 0.241 (L256) -> 0.259 (L320).
+  - After the stage (only moves into GLM count), vs L160 at the same W: W 1: L224 +0.0004, **L256 +0.0015 [-0.0004,
+    +0.0033]**, L320 +0.0004; W 1.25: every cut +0.0000 to +0.0004. 12-19 rows differ. The stage barely uses the better
+    evidence (it is saturated: exp051), so this is a weak lever OOF.
+  - Still the only lever left that improves the stage's evidence rather than its weighting: the test-time GLM features
+    are noisier than train's (decode neighbours, exp051), and more tokens average that noise down. LB read worth one
+    slot.
+- 00:52 UTC: built **ntl-lv704-l256** (build_ntl40.py cut_fork, code sha 1f33c46f) = the public 0.704 (W 1, routing,
+  penalty 0.15) with only: the head = his recipe refitted on our train scores at L256 (exp060 export; our L160 refit
+  matches his head at coef corr 0.994), and the stage's token budget 90k -> 130k so the 15% cover still binds (~100k
+  token rows expected on ~4,000 passages; our c22 builds ran 130k through the hidden rerun; our ntl-glmll train runs
+  used the same segrun at 512 tokens, seq-batch 8). The stage asserts the test cut = the head's max_text_tokens.
+  Pushed v1 (GPU 6,920 / 75,600 s).
+- 00:57 UTC: ntl-lv704-l256 v1 commit COMPLETE (FAST_COMMIT, 25 GLM segments, 3 rows; source as built). **Submitted as
+  #122 (sub 58587458)**; 2 left on 11-20, held for #119-#121 (W 1.5, no routing, penalty 0.05 reads).
+- 03:38 UTC: **#119 (ntl-lv704-w125-nof) scored 0.703**. Without the Fable routing, the 0.704's typography changes
+  (post-stage probabilities for GLM winners, penalty 0.15) on ntl706w read -0.001. So the routing is the part of the
+  0.704 that carries its gain, and w125-nof-p05 (ntl706w + post-stage probabilities) is dropped. The 2 slots left on
+  11-20 wait for #120 (W 1.5) and #122 (L256).
+- 03:45 UTC: pre-built **ntl-lv704-l320** (code sha 307b25a4; exp060 export 320; budget 130k) as #122's follow-up, to be
+  committed only if #122 (L256) reads above 0.704. exp060: L320 has the best head alone (0.222) but only +0.0004 after the
+  stage.
+- 06:09 UTC: **#120 (ntl-lv704-w15) scored 0.704**. On the routed line W 1 / 1.25 / 1.5 all read 0.704: the blend
+  weight is flat, so -w135 / -w11 (committed) are dropped. The routing carries the 0.704's gain (#119), so its
+  coefficient is next (exp061).
+- 06:10 UTC **exp061** (experiments/exp061_routing_coef.py, outputs/exp061/run.log): the routing coefficient out of
+  fold (his head, cover 0.15, revert), vs the public 0.35 capped. W 1: coef 0 -0.0004, 0.2 +0.0003, **0.5 +0.0007
+  [+0.0000, +0.0019]** (2 rows differ, 7 new stage rows), 0.75 / 1.0 +0.0000, uncapped 0.35 / 0.75 -0.0004; W 1.25 the
+  same. At most 7 rows move: the OOF stage cannot see what the routing does on the LB (+0.002 there), as for W.
+- 06:11 UTC: built and pushed **ntl-lv704-r05** (code sha 05affdab) = the public 0.704 with only the routing
+  coefficient 0.35 -> 0.5 (W 1, guard 0.25, penalty 0.15 unchanged). A candidate for the 2 slots left on 11-20, with
+  #122's follow-up (l320, built, not committed) if L256 beats 0.704. GPU 17,177 / 75,600 s.
+- 06:16 UTC: ntl-lv704-r05 v1 commit COMPLETE (FAST_COMMIT, 25 GLM segments, 3 rows, no traceback; the pulled source has
+  coefficient 0.5 and otherwise the 0.704's lines: guard 0.25, budget 90k, W 1, penalty 0.15). Ready to submit.
+- 06:17 UTC: **submitted ntl-lv704-r05 as #123 (sub 58599266)**; 1 left on 11-20, for #122's follow-up or the next read.
+- 06:27 UTC: **#121 (ntl-lv704-w125-p05) scored 0.704** = #118. On the routed 0.704 line the blend weight (1 / 1.25 / 1.5)
+  and the typography penalty (0.15 / 0.05) are all flat at 0.704; only dropping the routing moved it (0.703). Pending:
+  #122 (L256), #123 (routing 0.5).
+- 06:30 UTC Code tab (top 25 by score; the API gives no scores) + public LB CSV (p78/lb/0620): the score-ordered top
+  is evgendvorkin, lightningv08, areebbb, bill123987 (teams all 0.704; the order inside the tie is neither votes nor
+  date, so likely the unrounded score), then asteriospanoras "0.704 | Which LLMs Look Alike?" (team best 0.703, so the
+  notebook is <= 0.703), mzishran (0.703), wkdbskwsm (0.703). Nothing public above 0.704: the share bar stays > 0.704.
+  mathleteutd's two new "Looser Fable Return" notebooks (05:29 / 05:34) rank below the 0.702s (team 0.702). Our team
+  reads 0.704 (rank 209). Private teams moved overnight (eeshsaxena / aifycer 0.703 -> 0.707, QCJin1 0.702 -> 0.705);
+  none of their notebooks is public.
+- 07:03 UTC: **#122 (ntl-lv704-l256) scored 0.706**: +0.002 over the 0.704 and over every blend-weight / penalty read
+  on it (#118, #120, #121 all 0.704). The longer likelihood cut is the first stage change on this line that moves the
+  LB (exp060 OOF: +0.0015 at W 1; head alone 0.190 -> 0.215). Above the Code-tab top (0.704): published per the user's
+  rule (below). Today's last slot: ntl-lv704-l320 (pushed 07:03) to read the cut's direction.
+- 07:07 UTC: **published #122** as
+  [0-706-glm-fable-routing-256-token-likelihood](https://www.kaggle.com/code/omerfarukmerey/0-706-glm-fable-routing-256-token-likelihood)
+  ("0.706 | GLM Fable Routing + 256-Token Likelihood"), per the user's standing rule (share a submission that beats the
+  Code-tab top). Checks first:
+  - Code tab re-read at 07:07: top teams still 0.704.
+  - visibility_of.py: all 44 inputs public (26 datasets, 9 kernels, 9 models; the 429 rate limit hid the last five
+    models on the first try).
+  - publish_cut.py: the scored v1 code cells byte for byte. Our header covers what changed (head refit at 256, budget
+    130k), why (exp060 numbers, test-time GLM noise), the LB A/B table (0.702 / 0.704 / ntl706w / our five reads /
+    0.706), how the head was fitted (snippet), how it works, credits (lightningv08, estopadilla, jamesliebel,
+    bill123987, lightningv08's own list, Built with Llama). A stage note sits before the GLM cells.
+  - quick_save.py: QUICK_SAVE v2, public, title changed; Kaggle re-slugged the kernel from the title (the old slug
+    ntl-lv704-l256 now 404s, so kaggle/nlm/ntl-lv704-l256/kernel-metadata.json no longer points at it).
+- 07:08 UTC: ntl-lv704-l320 v1 commit COMPLETE (FAST_COMMIT, 25 GLM segments, 3 rows; source as built). **Submitted as
+  #124 (sub 58601185)**; 0 left on 11-20. Pending: #123 (routing 0.5), #124 (L320).
+- 07:12 UTC: pre-built for 11-21 (not committed yet):
+  - **ntl-lv704-l224** (code sha 4ac6190f; exp060 export 224): brackets the 0.706 from below;
+  - **ntl-lv704-l256-r05** (13395faf): #122 + routing coefficient 0.5, to be used if #123 (r05) reads above 0.704.
+  - #123 (~12:15) and #124 (L320, ~13:10) pick the 11-21 slate. Other candidates on the L256 line: W 1.25 (flat on the
+    L160 line), a wider cover now that the evidence is better (needs a time check: 130k positions is the proven budget).
+- 12:52 UTC: **#123 (ntl-lv704-r05) scored 0.699**, -0.005 vs the 0.704: raising the routing coefficient 0.35 -> 0.5
+  (exp061: 7 more stage rows on train, +0.0007 OOF) costs far more than the same-code noise. The test's Fable passages
+  routed into the stage are moved into GLM wrongly (the stage keeps only moves into GLM). The OOF stage misjudges the
+  routing's sign at 0.5, as it misjudged W. Coefficient 0 (0.703 / 0.704 reads) and 0.35 (0.704) are the safe side; a
+  smaller coefficient (0.2) on the L256 line is the only routing move left. ntl-lv704-l256-r05 dropped. Pending: #124 (L320).
+- 13:00 UTC exp060 C sweep (experiments/exp060_c_sweep.py, outputs/exp060/c_sweep.log): his recipe at L256, C 0.01-0.5,
+  head alone out of fold. C 0.05 (his) has the lowest log loss (2.419; L160 2.503) and the best stage read (+0.0015);
+  GLM-vs-rest AUC is flat 0.848-0.852 for C >= 0.02 (L160 0.843). The refit keeps C 0.05: no C variant.

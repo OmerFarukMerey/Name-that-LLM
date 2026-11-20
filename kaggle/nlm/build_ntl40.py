@@ -36,6 +36,13 @@ OOF bank.
                         bill123987's public ntl706w (pulled 2026-11-19) made only that change to the 0.702 soft
                         typography and scored 0.704; exp058 puts W 1.25 at +0.0015 [-0.0000, +0.0033] with his head
                         under the Fable routing (cover 0.15), and flat with gbmpair
+    ntl-lv704-w125-c22  + the stage at cover 0.22 / 130,000 token rows (exp058: his W 1.25 +0.0025 [-0.0000, +0.0055] at
+                        cover 0.22 under the routing); submitted only if #116 (c22) beats #117 on the 0.704
+    ntl-lv704-w15       the public 0.704 with the blend at 1.5 W (guard 0.32)
+    ntl-lv704-w125-nof  ntl-lv704-w125 without the Fable routing (stage rows ranked by GLM mass, as in the soft 0.702 and
+                        ntl706w): the 0.704's typography changes (post-stage probabilities for GLM winners, penalty
+                        0.15) + 1.25 W
+    ntl-lv704-w125-p05  ntl-lv704-w125 with the typography penalty 0.05 (the soft 0.702's and ntl706w's) instead of 0.15
 
     python kaggle/nlm/build_ntl40.py
 """
@@ -588,8 +595,20 @@ def build():
     for a, b in W125:
         st = st.replace(a, b)
     assert st in bill, "ntl706w's stage is not the soft stage with W125"
-    write("ntl-lv704-w125", w125_fork(fable, "ntl-lv704-w125", base),
-          meta("ntl-lv704-w125", json.loads(FABLE_META.read_text(encoding="utf-8")), True))
+    for name, kw in (("ntl-lv704-w125", {}), ("ntl-lv704-w125-c22", {"wide": True}), ("ntl-lv704-w15", {"w": 1.5}),
+                     ("ntl-lv704-w125-nof", {"routing": False}), ("ntl-lv704-w125-p05", {"penalty": 0.05}),
+                     ("ntl-lv704-w135", {"w": 1.35}), ("ntl-lv704-w11", {"w": 1.1}),
+                     ("ntl-lv704-w125-nof-p05", {"routing": False, "penalty": 0.05})):
+        write(name, w_fork(fable, name, base, **kw), meta(name, json.loads(FABLE_META.read_text(encoding="utf-8")), True))
+    for cut in (224, 256, 320):
+        name = f"ntl-lv704-l{cut}"
+        write(name, cut_fork(fable, name, base, cut), meta(name, json.loads(FABLE_META.read_text(encoding="utf-8")), True))
+    write("ntl-lv704-l256-r05", routing_fork(cut_fork(fable, "ntl-lv704-l256-r05", base, 256), 0.5),
+          meta("ntl-lv704-l256-r05", json.loads(FABLE_META.read_text(encoding="utf-8")), True))
+    # the 0.704 with only the routing coefficient changed
+    r05 = dict(fable, cells=[{"cell_type": "markdown", "metadata": {}, "source":
+                              f"# ntl-lv704-r05\n\n{base}, every other code cell unchanged. Private."}] + fable["cells"])
+    write("ntl-lv704-r05", routing_fork(r05, 0.5), meta("ntl-lv704-r05", json.loads(FABLE_META.read_text(encoding="utf-8")), True))
 
 
 GBM_STAGE = "%%writefile /kaggle/temp/v1/v1_stage.py\n"
@@ -605,20 +624,80 @@ W125 = (("    ap.add_argument('--max-changed', type=float, default=0.25,\n",
         ("    w = model['W'] / tp\n", "    w = 1.25 * model['W'] / tp  # ours: stronger likelihood blend\n"))
 
 
-def w125_fork(nb, name, base):
-    """base's cells with the GLM stage's blend weight at 1.25 W and the changed-predictions guard at 0.32."""
+ROUTING = ("    fable_mass = np.exp(zl[:, labels.index('claude-fable-5')])\n"
+           "    priority = mass + 0.35 * np.minimum(fable_mass, mass)\n"
+           "    order = np.argsort(-priority, kind='stable')\n",
+           "    order = np.argsort(-mass, kind='stable')  # ours: no Fable routing (the soft 0.702's order)\n")
+PENALTY = "strength=0.1, corrected=False, penalty=0.15)"
+
+
+def w_fork(nb, name, base, w=1.25, wide=False, routing=True, penalty=0.15):
+    """base's (the 0.704's) cells with the GLM stage's blend weight at w * W and the changed-predictions guard at 0.32;
+    if wide, a 22% stage budget; without routing, the stage rows ranked by GLM mass alone; the typography penalty."""
     cells = [dict(c) for c in nb["cells"]]
     st = [i for i, c in enumerate(cells) if c["cell_type"] == "code" and c["source"].startswith(GBM_STAGE)]
     assert len(st) == 1
     src = cells[st[0]]["source"]
     for a, b in W125:
         assert src.count(a) == 1, a
-        src = src.replace(a, b.replace("ours", "ours (bill123987's ntl706w, exp058)"))
+        src = src.replace(a, b.replace("ours", "ours (bill123987's ntl706w, exp058)").replace("1.25 * ", f"{w:g} * "))
+    for a, b in (WIDE if wide else ()) + (() if routing else (ROUTING,)):
+        assert src.count(a) == 1, a
+        src = src.replace(a, b)
     cells[st[0]] = dict(cells[st[0]], source=src)
-    what = (f"the GLM stage blends estopadilla's likelihood head at 1.25 W (sanity guard 0.32), as bill123987's public "
-            f"[ntl706w]({BILL_URL}) did on the 0.702 soft typography")
+    if penalty != 0.15:
+        ca = [i for i, c in enumerate(cells) if c["cell_type"] == "code" and PENALTY in c["source"]]
+        assert len(ca) == 1
+        cells[ca[0]] = dict(cells[ca[0]], source=cells[ca[0]]["source"].replace(
+            PENALTY, f"strength=0.1, corrected=False, penalty={penalty:g})  # ours: the soft 0.702's penalty"))
+    what = (f"the GLM stage blends estopadilla's likelihood head at {w:g} W (sanity guard 0.32), as bill123987's public "
+            f"[ntl706w]({BILL_URL}) did at 1.25 W on the 0.702 soft typography")
+    if wide:
+        what += ", and the stage scores up to 22% of the test / 130,000 token rows (lightningv08's apex-style-15)"
+    if not routing:
+        what += ", and the stage ranks rows by GLM mass alone (no Fable routing, as the soft 0.702)"
+    if penalty != 0.15:
+        what += f", and the typography penalty is {penalty:g} (the soft 0.702's)"
     return dict(nb, cells=[{"cell_type": "markdown", "metadata": {}, "source":
                             f"# {name}\n\n{base}, every other code cell unchanged; {what}. Private."}] + cells)
+
+
+def cut_fork(nb, name, base, cut):
+    """base's (the 0.704's) cells with estopadilla's head refitted by his recipe at a `cut`-token likelihood cut (exp060)
+    and the stage's token budget at 130,000 rows (so the 15% cover still binds, as in our c22 builds' time)."""
+    cells = [dict(c) for c in nb["cells"]]
+    model = json.loads((L.HEADS / f"his_L{cut}.json").read_text(encoding="utf-8"))
+    his = json.loads((HERE.parent / "glmll" / "v1src" / "ll_model.json").read_text(encoding="utf-8"))
+    assert model["max_text_tokens"] == cut and model["features"] == his["features"] and model["W"] == his["W"]
+    ll = [c for c in cells if c["cell_type"] == "code" and c["source"].startswith(GBM_LL)]
+    st = [i for i, c in enumerate(cells) if c["cell_type"] == "code" and c["source"].startswith(GBM_STAGE)]
+    assert len(ll) == 1 and len(st) == 1
+    assert json.loads(ll[0]["source"][len(GBM_LL):].rsplit("')", 1)[0]) == his, "the 0.704's head is not estopadilla's"
+    ll[0]["source"] = (f"# ours (exp060): estopadilla's recipe refitted on the first {cut} tokens (his: 160)\n"
+                       f"Path('/kaggle/temp/v1/ll_model.json').write_text({json.dumps(model)!r})\n")
+    a, b = WIDE[1]
+    src = cells[st[0]]["source"]
+    assert src.count(a) == 1, a
+    cells[st[0]] = dict(cells[st[0]], source=src.replace(a, b.rstrip("\n") + f"  # ours: room for {cut}-token rows\n"))
+    what = (f"the GLM stage reads the first {cut} tokens of each passage (estopadilla's head refitted with his recipe at "
+            f"that cut; his reads 160) and may score up to 130,000 token rows (15% cover unchanged)")
+    return dict(nb, cells=[{"cell_type": "markdown", "metadata": {}, "source":
+                            f"# {name}\n\n{base}, every other code cell unchanged; {what}. Private."}] + cells)
+
+
+def routing_fork(nb, coef):
+    """nb (a fork of the 0.704) with the Fable routing coefficient `coef` (the 0.704's: 0.35, exp061)."""
+    a = "    priority = mass + 0.35 * np.minimum(fable_mass, mass)\n"
+    cells = [dict(c) for c in nb["cells"]]
+    st = [i for i, c in enumerate(cells) if c["cell_type"] == "code" and c["source"].startswith(GBM_STAGE)]
+    assert len(st) == 1 and cells[st[0]]["source"].count(a) == 1
+    cells[st[0]] = dict(cells[st[0]], source=cells[st[0]]["source"].replace(
+        a, f"    priority = mass + {coef:g} * np.minimum(fable_mass, mass)  # ours: routing coefficient (0.704: 0.35)\n"))
+    head = cells[0]["source"]
+    assert cells[0]["cell_type"] == "markdown" and head.endswith(". Private.")
+    cells[0] = dict(cells[0], source=head[:-len(". Private.")] + f"; the Fable routing coefficient is {coef:g} (0.704: "
+                    "0.35). Private.")
+    return dict(nb, cells=cells)
 
 
 def gbm_fork(nb, name, wide, base=None):
